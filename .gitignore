@@ -19,6 +19,7 @@ venv/
 env/
 
 # Node / frontend
+**/.svelte-kit/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -30,6 +31,9 @@ pnpm-debug.log*
 dist/
 build/
 coverage/
+
+# Local data
+leaf.db
 
 # IDE / editor
 .vscode/
