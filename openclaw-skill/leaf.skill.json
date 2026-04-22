@@ -1,0 +1,88 @@
+{
+  "id": "leaf",
+  "name": "Leaf 🌿",
+  "version": "2.0.0",
+  "description": "Agente financiero personal para Colombia — registra gastos, analiza presupuestos y calcula impuestos, todo local.",
+  "author": "leaf-project",
+  "categories": ["finance", "productivity", "colombia"],
+  "language": "es-CO",
+  "base_url": "http://localhost:8000",
+  "auth": {
+    "type": "none"
+  },
+  "endpoints": {
+    "chat": {
+      "path": "/chat/stream",
+      "method": "POST",
+      "streaming": true,
+      "content_type": "application/json",
+      "body_schema": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" }
+        },
+        "required": ["message"]
+      }
+    },
+    "health": {
+      "path": "/health",
+      "method": "GET"
+    }
+  },
+  "tools": [
+    {
+      "name": "register_expense",
+      "description": "Registra un gasto en COP con categoría, descripción y comercio.",
+      "parameters": {
+        "amount": "number — monto en pesos colombianos",
+        "category": "string — comida|transporte|vivienda|salud|entretenimiento|ropa|servicios|otro",
+        "description": "string",
+        "merchant": "string? — nombre del comercio"
+      }
+    },
+    {
+      "name": "register_income",
+      "description": "Registra un ingreso (salario, freelance, etc.).",
+      "parameters": {
+        "amount": "number",
+        "category": "string — salario|freelance|ventas|inversiones|otro",
+        "description": "string"
+      }
+    },
+    {
+      "name": "check_budget",
+      "description": "Verifica el presupuesto mensual por categoría.",
+      "parameters": {
+        "category": "string — categoría o 'all'"
+      }
+    },
+    {
+      "name": "summarize_month",
+      "description": "Genera resumen financiero completo del mes.",
+      "parameters": {
+        "month": "string — YYYY-MM o 'current'"
+      }
+    },
+    {
+      "name": "calculate_renta",
+      "description": "Estima el impuesto de renta colombiano basado en ingresos registrados.",
+      "parameters": {
+        "year": "number — año fiscal (0 = año en curso)"
+      }
+    },
+    {
+      "name": "check_deadlines",
+      "description": "Consulta fechas límite de la DIAN para declaración de renta.",
+      "parameters": {
+        "nit_suffix": "string — últimos 2 dígitos del NIT (opcional)"
+      }
+    }
+  ],
+  "example_prompts": [
+    "gasté 45 mil en el éxito en comida",
+    "¿cómo voy con mi presupuesto de comida?",
+    "resume mis finanzas de este mes",
+    "¿cuánto renta tengo que pagar este año?",
+    "¿cuándo es mi fecha límite para declarar renta? mi cédula termina en 72"
+  ]
+}
