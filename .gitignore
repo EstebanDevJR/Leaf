@@ -36,6 +36,7 @@ coverage/
 leaf.db
 
 # IDE / editor
+.claude/
 .vscode/
 .idea/
 *.swp
