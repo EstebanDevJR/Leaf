@@ -5,6 +5,7 @@ from langgraph.prebuilt import create_react_agent
 
 from backend.agents.dian import DIAN_TOOLS
 from backend.agents.insights import INSIGHTS_TOOLS
+from backend.agents.investigador import _get_investigador_tools
 from backend.agents.ocr import OCR_TOOLS
 from backend.agents.transactions import TRANSACTION_TOOLS
 from backend.config import settings
@@ -47,7 +48,19 @@ Siempre aclara que los cálculos tributarios son estimaciones y recomienda un co
 
 — Proactividad —
 Cuando el usuario registre un gasto y haya un presupuesto configurado para esa categoría,
-llama a check_budget para ese categoría y advierte si está cerca del límite (>80%) o excedido."""
+llama a check_budget para ese categoría y advierte si está cerca del límite (>80%) o excedido.
+
+— Investigador Financiero —
+Usa analyze_patterns para tendencias de gasto por categoría y período.
+Usa detect_anomaly para detectar gastos inusuales vs historial.
+Usa find_subscriptions para identificar pagos recurrentes y suscripciones.
+Usa calculate_savings_goal para proyectar cuándo se alcanza una meta de ahorro.
+Usa get_cdt_rates para mostrar tasas CDT de referencia (educativo, siempre con disclaimer).
+Usa analyze_weekday para ver cómo se distribuyen los gastos por día de semana.
+Usa find_idle_money para detectar dinero acumulado sin movimiento.
+Usa emergency_fund_status para calcular la cobertura del fondo de emergencia.
+Usa generate_insight_report para un informe completo de todos los hallazgos.
+Usa explain_concept para educación financiera (CDT, UVT, GMF, renta, etc.)."""
 
 _agent = None
 
@@ -57,7 +70,7 @@ def _build_agent():
         model=settings.ollama_model,
         base_url=settings.ollama_base_url,
     )
-    all_tools = TRANSACTION_TOOLS + OCR_TOOLS + INSIGHTS_TOOLS + DIAN_TOOLS
+    all_tools = TRANSACTION_TOOLS + OCR_TOOLS + INSIGHTS_TOOLS + DIAN_TOOLS + _get_investigador_tools()
     return create_react_agent(llm, all_tools, prompt=SYSTEM_PROMPT)
 
 

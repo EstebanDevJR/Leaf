@@ -66,6 +66,10 @@ def create_transaction(
     session.add(transaction)
     session.commit()
     session.refresh(transaction)
+
+    from backend.scheduler import on_new_transaction
+    on_new_transaction()
+
     return transaction
 
 

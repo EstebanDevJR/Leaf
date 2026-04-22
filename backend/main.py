@@ -7,9 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.routes import chat, ocr, transactions
 from backend.api.routes import alerts, budgets
+from backend.api.routes import investigador as investigador_router
 from backend.db.database import create_tables
 from backend.models import alert as _alert_model  # noqa: F401 — registers table
 from backend.models import budget as _budget_model  # noqa: F401 — registers table
+from backend.models import investigador_config as _inv_config_model  # noqa: F401 — registers table
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +36,15 @@ async def lifespan(app: FastAPI):
     create_tables()
     global _checker_task
     _checker_task = asyncio.create_task(_periodic_alert_check())
+
+    from backend.scheduler import start_scheduler, stop_scheduler
+    start_scheduler()
+
     yield
+
     if _checker_task:
         _checker_task.cancel()
+    stop_scheduler()
 
 
 app = FastAPI(
@@ -59,6 +67,7 @@ app.include_router(transactions.router, prefix="/transactions", tags=["transacti
 app.include_router(ocr.router, prefix="/ocr", tags=["ocr"])
 app.include_router(budgets.router, prefix="/budgets", tags=["budgets"])
 app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
+app.include_router(investigador_router.router, prefix="/investigador", tags=["investigador"])
 
 
 @app.get("/health")
