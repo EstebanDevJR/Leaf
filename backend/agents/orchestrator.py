@@ -9,6 +9,11 @@ from backend.agents.investigador import _get_investigador_tools
 from backend.agents.ocr import OCR_TOOLS
 from backend.agents.transactions import TRANSACTION_TOOLS
 from backend.config import settings
+from backend.tools.cdt_live_rates import get_live_cdt_rates
+from backend.tools.dian_factura import import_dian_factura
+from backend.tools.formulario_210 import formulario_210
+from backend.tools.savings_goal_tools import SAVINGS_GOAL_TOOLS
+from backend.tools.whatif_simulator import whatif_simulator
 
 SYSTEM_PROMPT = """Eres Leaf 🌿, un asistente financiero personal para Colombia.
 Tu rol es ayudar a registrar gastos e ingresos, gestionar presupuestos, consultar historial, predecir gastos y orientar sobre impuestos.
@@ -60,22 +65,44 @@ Usa analyze_weekday para ver cómo se distribuyen los gastos por día de semana.
 Usa find_idle_money para detectar dinero acumulado sin movimiento.
 Usa emergency_fund_status para calcular la cobertura del fondo de emergencia.
 Usa generate_insight_report para un informe completo de todos los hallazgos.
-Usa explain_concept para educación financiera (CDT, UVT, GMF, renta, etc.)."""
+Usa explain_concept para educación financiera (CDT, UVT, GMF, renta, etc.).
+
+— Metas de Ahorro —
+Usa create_savings_goal para crear una meta con proyección ajustada por inflación colombiana.
+Usa list_savings_goals para ver el progreso de todas las metas activas.
+Usa update_savings_goal para registrar un aporte a una meta existente.
+
+— Análisis Avanzado —
+Usa whatif_simulator para simular escenarios ("¿qué pasa si ahorro 15% más?").
+  Escenarios: ahorro_mas, gasto_menos, ingreso_mas, categoria_cero.
+Usa formulario_210 para generar la declaración de renta preliminar (Formulario 210 DIAN).
+Usa get_live_cdt_rates para tasas CDT actualizadas (siempre con disclaimer legal).
+Usa import_dian_factura para importar facturas electrónicas DIAN en formato XML."""
 
 _agent = None
+_voice_agent = None
 
 
-def _build_agent():
-    llm = ChatOllama(
-        model=settings.ollama_model,
-        base_url=settings.ollama_base_url,
+def _build_agent(model: str):
+    llm = ChatOllama(model=model, base_url=settings.ollama_base_url)
+    extra_tools = [whatif_simulator, formulario_210, get_live_cdt_rates, import_dian_factura]
+    all_tools = (
+        TRANSACTION_TOOLS + OCR_TOOLS + INSIGHTS_TOOLS + DIAN_TOOLS
+        + _get_investigador_tools() + SAVINGS_GOAL_TOOLS + extra_tools
     )
-    all_tools = TRANSACTION_TOOLS + OCR_TOOLS + INSIGHTS_TOOLS + DIAN_TOOLS + _get_investigador_tools()
     return create_react_agent(llm, all_tools, prompt=SYSTEM_PROMPT)
 
 
 def get_agent():
     global _agent
     if _agent is None:
-        _agent = _build_agent()
+        _agent = _build_agent(settings.ollama_model)
     return _agent
+
+
+def get_voice_agent():
+    """Same agent as chat but backed by the faster voice model (default: phi4)."""
+    global _voice_agent
+    if _voice_agent is None:
+        _voice_agent = _build_agent(settings.ollama_voice_model)
+    return _voice_agent

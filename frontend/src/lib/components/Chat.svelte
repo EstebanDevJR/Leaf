@@ -80,10 +80,12 @@
 
     try {
       for await (const event of sendChatStream(text)) {
-        if (event.type === 'tool_call') addStep(event.tool, event.input);
+        if      (event.type === 'chunk')       chunkLeaf(event.content);
+        else if (event.type === 'tool_call')   addStep(event.tool, event.input);
         else if (event.type === 'tool_result') resolveStep(event.tool, event.output);
-        else if (event.type === 'response') { finalizeLeaf(event.content); dispatch('sent'); }
-        else if (event.type === 'error') finalizeLeaf('Error: ' + event.message);
+        else if (event.type === 'response')    { finalizeLeaf(event.content); dispatch('sent'); }
+        else if (event.type === 'done')        dispatch('sent');
+        else if (event.type === 'error')       finalizeLeaf('Error: ' + event.message);
       }
     } catch {
       finalizeLeaf('No puedo conectarme al backend. ¿Está corriendo Leaf?');
@@ -118,9 +120,19 @@
     messages = [...messages];
   }
 
+  function chunkLeaf(token: string) {
+    const m = lastLeaf(); if (!m) return;
+    m.content = (m.content ?? '') + token;
+    m.pending = false;
+    messages = [...messages];
+    tick().then(scrollBottom);
+  }
+
   function finalizeLeaf(content: string) {
     const m = lastLeaf(); if (!m) return;
-    m.content = content; m.pending = false;
+    // Only overwrite if we got nothing from streaming chunks
+    if (!m.content) m.content = content;
+    m.pending = false;
     messages = [...messages];
   }
 

@@ -12,6 +12,19 @@ dependencies = [
     "langchain-core>=0.3.0",
     "python-multipart>=0.0.12",
     "pydantic-settings>=2.0.0",
+    "openpyxl>=3.1.0",
+    "fpdf2>=2.7.0",
+    "httpx>=0.27.0",
+    "python-telegram-bot>=21.0",
+    # Voice features
+    "faster-whisper>=1.0.0",
+    "piper-tts>=1.2.0",
+    "pydub>=0.25.1",
+    "ffmpeg-python>=0.2.0",
+    # Phi-4-multimodal STT
+    "transformers>=4.48.0",
+    "soundfile>=0.12.1",
+    "torch>=2.2.0",
 ]
 
 [build-system]

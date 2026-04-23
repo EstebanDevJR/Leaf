@@ -1,9 +1,13 @@
 <script lang="ts">
-  import { deleteTransaction, dismissAlert, formatCOP, getAlerts, getBudgets, getStats, getTransactions } from '$lib/api';
+  import { deleteTransaction, dismissAlert, formatCOP, getAlerts, getBudgets, getStats, getTransactions, getInvestigadorStatus, toggleInvestigador } from '$lib/api';
   import type { AlertItem, Budget } from '$lib/api';
   import AlertBanner from '$lib/components/AlertBanner.svelte';
   import Chat from '$lib/components/Chat.svelte';
   import TransactionDrawer from '$lib/components/TransactionDrawer.svelte';
+  import SavingsGoals from '$lib/components/SavingsGoals.svelte';
+  import ImportExport from '$lib/components/ImportExport.svelte';
+  import ProfileSwitcher from '$lib/components/ProfileSwitcher.svelte';
+  import CallButton from '$lib/voice/CallButton.svelte';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -14,11 +18,27 @@
   let alerts: AlertItem[] = data.alerts ?? [];
   let loadingTx = false;
   let drawerOpen = false;
+  let sidePanel: 'none' | 'goals' | 'import' | 'profiles' = 'none';
+  let investigadorEnabled = $state(true);
 
   $: activeAlerts = alerts.filter(a => !a.dismissed);
   $: urgentCount = activeAlerts.filter(a => a.severity === 'urgent').length;
   $: warnCount = activeAlerts.filter(a => a.severity === 'warn').length;
   $: badgeCount = activeAlerts.length;
+
+  // Load investigador status on mount
+  import { onMount } from 'svelte';
+  onMount(async () => {
+    try {
+      const status = await getInvestigadorStatus();
+      investigadorEnabled = status.enabled;
+    } catch { /* silent */ }
+  });
+
+  async function handleToggleInvestigador() {
+    investigadorEnabled = !investigadorEnabled;
+    await toggleInvestigador(investigadorEnabled);
+  }
 
   async function refresh() {
     loadingTx = true;
@@ -45,6 +65,12 @@
 
   function toggleDrawer() {
     drawerOpen = !drawerOpen;
+    if (drawerOpen) sidePanel = 'none';
+  }
+
+  function togglePanel(panel: typeof sidePanel) {
+    sidePanel = sidePanel === panel ? 'none' : panel;
+    if (sidePanel !== 'none') drawerOpen = false;
   }
 
   let alertsOpen = false;
@@ -81,10 +107,31 @@
       </button>
     {/if}
 
-    <button class="drawer-toggle" on:click={toggleDrawer} class:active={drawerOpen}>
-      {#if drawerOpen}✕{:else}📊{/if}
-      <span class="drawer-toggle-label">{drawerOpen ? 'cerrar' : 'transacciones'}</span>
-    </button>
+    <CallButton />
+
+    <div class="topbar-actions">
+      <button class="drawer-toggle" on:click={() => togglePanel('goals')} class:active={sidePanel === 'goals'} title="Metas de ahorro">
+        🎯
+      </button>
+      <button class="drawer-toggle" on:click={() => togglePanel('import')} class:active={sidePanel === 'import'} title="Importar / Exportar">
+        ↕️
+      </button>
+      <button class="drawer-toggle" on:click={() => togglePanel('profiles')} class:active={sidePanel === 'profiles'} title="Perfiles">
+        👤
+      </button>
+      <button
+        class="inv-toggle"
+        class:enabled={investigadorEnabled}
+        on:click={handleToggleInvestigador}
+        title={investigadorEnabled ? 'Investigador ON — click para desactivar' : 'Investigador OFF — click para activar'}
+      >
+        🔍 {investigadorEnabled ? 'ON' : 'OFF'}
+      </button>
+      <button class="drawer-toggle" on:click={toggleDrawer} class:active={drawerOpen}>
+        {#if drawerOpen}✕{:else}📊{/if}
+        <span class="drawer-toggle-label">{drawerOpen ? 'cerrar' : 'transacciones'}</span>
+      </button>
+    </div>
   </header>
 
   <!-- Alerts panel (below topbar) -->
@@ -107,6 +154,22 @@
       on:close={toggleDrawer}
       on:delete={handleDelete}
     />
+  {/if}
+
+  {#if sidePanel !== 'none'}
+    <div class="side-panel">
+      <button class="panel-close" on:click={() => sidePanel = 'none'}>✕</button>
+      {#if sidePanel === 'goals'}
+        <SavingsGoals />
+      {:else if sidePanel === 'import'}
+        <ImportExport />
+      {:else if sidePanel === 'profiles'}
+        <div class="panel-section">
+          <h2 style="font-size:1rem;color:#e2e8f0;margin:0 0 12px">Perfiles familiares</h2>
+          <ProfileSwitcher />
+        </div>
+      {/if}
+    </div>
   {/if}
 </div>
 
@@ -246,6 +309,30 @@
     letter-spacing: 0.05em;
   }
 
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .inv-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .inv-toggle.enabled {
+    border-color: rgba(34, 197, 94, 0.4);
+    color: var(--green);
+  }
+
   @media (max-width: 480px) {
     .drawer-toggle-label { display: none; }
     .quick-stats { display: none; }
@@ -258,4 +345,40 @@
     display: flex;
     flex-direction: column;
   }
+
+  /* ── Side panel ── */
+  .side-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(380px, 100vw);
+    background: #0f172a;
+    border-left: 1px solid var(--border);
+    padding: 56px 16px 16px;
+    overflow-y: auto;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .panel-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .panel-section { padding: 4px 0; }
 </style>

@@ -59,6 +59,7 @@ export interface ReceiptData {
 }
 
 export type ChatEvent =
+  | { type: 'chunk'; content: string }
   | { type: 'tool_call'; tool: string; input: Record<string, unknown> }
   | { type: 'tool_result'; tool: string; output: string }
   | { type: 'response'; content: string }
@@ -193,24 +194,157 @@ export function formatCOP(amount: number): string {
   }).format(amount);
 }
 
+// ── Savings Goals ─────────────────────────────────────────────────────────────
+
+export interface SavingsGoal {
+  id: number;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  monthly_contribution: number;
+  inflation_rate: number;
+  profile_id: string;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export async function getSavingsGoals(profileId = 'default'): Promise<SavingsGoal[]> {
+  const res = await fetch(`${API_URL}/savings-goals/?profile_id=${profileId}`);
+  if (!res.ok) throw new Error('Error al cargar metas');
+  return res.json();
+}
+
+export async function createSavingsGoal(data: Omit<SavingsGoal, 'id' | 'created_at' | 'completed_at'>): Promise<SavingsGoal> {
+  const res = await fetch(`${API_URL}/savings-goals/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Error al crear meta');
+  return res.json();
+}
+
+export async function updateSavingsGoal(id: number, data: Partial<SavingsGoal>): Promise<SavingsGoal> {
+  const res = await fetch(`${API_URL}/savings-goals/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Error al actualizar meta');
+  return res.json();
+}
+
+export async function deleteSavingsGoal(id: number): Promise<void> {
+  const res = await fetch(`${API_URL}/savings-goals/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Error al eliminar meta');
+}
+
+// ── Profiles ──────────────────────────────────────────────────────────────────
+
+export interface UserProfile {
+  id: number;
+  profile_id: string;
+  name: string;
+  color: string;
+  monthly_income: number;
+  created_at: string;
+}
+
+export async function getProfiles(): Promise<UserProfile[]> {
+  const res = await fetch(`${API_URL}/profiles/`);
+  if (!res.ok) throw new Error('Error al cargar perfiles');
+  return res.json();
+}
+
+export async function createProfile(data: Omit<UserProfile, 'id' | 'created_at'>): Promise<UserProfile> {
+  const res = await fetch(`${API_URL}/profiles/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Error al crear perfil');
+  return res.json();
+}
+
+// ── Import / Export ───────────────────────────────────────────────────────────
+
+export async function importCSV(file: File, bank: string): Promise<{ imported: number; expenses: number; incomes: number }> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/io/csv?bank=${encodeURIComponent(bank)}`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error de importación' }));
+    throw new Error((err as { detail?: string }).detail ?? 'Error de importación');
+  }
+  return res.json();
+}
+
+export function exportExcelUrl(year?: number, month?: number): string {
+  const y = year ?? new Date().getFullYear();
+  const m = month ?? new Date().getMonth() + 1;
+  return `${API_URL}/io/excel?year=${y}&month=${m}`;
+}
+
+export function exportPdfUrl(year?: number, month?: number, mode = 'standard'): string {
+  const y = year ?? new Date().getFullYear();
+  const m = month ?? new Date().getMonth() + 1;
+  return `${API_URL}/io/pdf?year=${y}&month=${m}&mode=${mode}`;
+}
+
+// ── Investigador ──────────────────────────────────────────────────────────────
+
+export async function getInvestigadorStatus(): Promise<{ enabled: boolean; user_id: string; updated_at: string }> {
+  const res = await fetch(`${API_URL}/investigador/status`);
+  if (!res.ok) throw new Error('Error al consultar estado del investigador');
+  return res.json();
+}
+
+export async function toggleInvestigador(enabled: boolean): Promise<void> {
+  await fetch(`${API_URL}/investigador/toggle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+}
+
 export const TOOL_LABELS: Record<string, string> = {
-  register_expense:  'registrando gasto',
-  register_income:   'registrando ingreso',
-  edit_transaction:  'editando transacción',
-  query_history:     'consultando historial',
-  delete_transaction:'eliminando transacción',
-  extract_receipt:   'leyendo recibo',
-  check_budget:         'verificando presupuesto',
-  set_budget:           'configurando presupuesto',
-  predict_expenses:     'proyectando gastos',
-  summarize_month:      'resumiendo mes',
-  check_obligacion:     'verificando obligación tributaria',
-  calculate_renta:      'calculando renta',
-  calcular_retencion:   'calculando retención en la fuente',
-  calcular_gmf:         'calculando GMF 4×1000',
-  calcular_deducciones: 'calculando deducciones',
-  generar_borrador:     'generando borrador de renta',
-  get_uvt_vigente:      'consultando UVT vigente',
-  check_deadlines:      'consultando fechas DIAN',
-  generate_report:      'generando reporte',
+  register_expense:      'registrando gasto',
+  register_income:       'registrando ingreso',
+  edit_transaction:      'editando transacción',
+  query_history:         'consultando historial',
+  delete_transaction:    'eliminando transacción',
+  extract_receipt:       'leyendo recibo',
+  check_budget:          'verificando presupuesto',
+  set_budget:            'configurando presupuesto',
+  predict_expenses:      'proyectando gastos',
+  summarize_month:       'resumiendo mes',
+  check_obligacion:      'verificando obligación tributaria',
+  calculate_renta:       'calculando renta',
+  calcular_retencion:    'calculando retención en la fuente',
+  calcular_gmf:          'calculando GMF 4×1000',
+  calcular_deducciones:  'calculando deducciones',
+  generar_borrador:      'generando borrador de renta',
+  get_uvt_vigente:       'consultando UVT vigente',
+  check_deadlines:       'consultando fechas DIAN',
+  generate_report:       'generando reporte',
+  analyze_patterns:      'analizando patrones',
+  detect_anomaly:        'detectando anomalías',
+  find_subscriptions:    'buscando suscripciones',
+  calculate_savings_goal:'calculando meta de ahorro',
+  get_cdt_rates:         'consultando tasas CDT',
+  get_live_cdt_rates:    'consultando tasas CDT en vivo',
+  analyze_weekday:       'analizando días de la semana',
+  find_idle_money:       'buscando dinero inactivo',
+  emergency_fund_status: 'evaluando fondo de emergencia',
+  generate_insight_report:'generando informe',
+  explain_concept:       'explicando concepto',
+  create_savings_goal:   'creando meta de ahorro',
+  list_savings_goals:    'listando metas',
+  update_savings_goal:   'actualizando meta',
+  whatif_simulator:      'simulando escenario',
+  formulario_210:        'generando Formulario 210',
+  import_dian_factura:   'importando factura DIAN',
 };

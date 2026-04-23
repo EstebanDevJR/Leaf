@@ -39,7 +39,16 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
                 kind = event["event"]
                 name = event.get("name", "")
 
-                if kind == "on_tool_start":
+                if kind == "on_chat_model_stream":
+                    chunk = event["data"].get("chunk")
+                    if chunk and hasattr(chunk, "content"):
+                        token = chunk.content
+                        # Only stream final-answer text; skip tool-call generation chunks
+                        if isinstance(token, str) and token and not getattr(chunk, "tool_call_chunks", None):
+                            final_response = (final_response or "") + token
+                            yield _sse({"type": "chunk", "content": token})
+
+                elif kind == "on_tool_start":
                     raw_input = event["data"].get("input", {})
                     try:
                         safe_input = json.loads(json.dumps(raw_input, default=str))
@@ -60,9 +69,12 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
                             content = getattr(msg, "content", "")
                             is_ai = not getattr(msg, "tool_calls", None)
                             if content and is_ai:
-                                final_response = content
+                                # Only use chain_end as fallback if streaming produced nothing
+                                if not final_response:
+                                    final_response = content
                                 break
 
+            # Send complete response for clients that missed chunks (e.g. SSE reconnect)
             if final_response:
                 yield _sse({"type": "response", "content": final_response})
 

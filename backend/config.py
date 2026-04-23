@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "gemma3"
     ollama_vision_model: str = "moondream"
+    ollama_voice_model: str = "phi4"
+    phi4_voice_model: str = "microsoft/Phi-4-multimodal-instruct"
     debug: bool = False
 
 
