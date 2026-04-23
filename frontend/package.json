@@ -10,7 +10,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
-    "gsap": "^3.12.7"
+    "gsap": "^3.12.7",
+    "chart.js": "^4.4.0"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.0.0",

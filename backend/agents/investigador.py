@@ -107,8 +107,9 @@ def _idle_money(state: InvestigadorState) -> InvestigadorState:
 
 
 def _notificar(state: InvestigadorState) -> InvestigadorState:
-    """Persiste hallazgos como alertas en la BD."""
+    """Persiste hallazgos como alertas en la BD y envía notificaciones push."""
     alertas_creadas = []
+    push_lines = []
 
     with Session(engine) as session:
         for anomalia in state.anomalias:
@@ -120,6 +121,7 @@ def _notificar(state: InvestigadorState) -> InvestigadorState:
             )
             session.add(alert)
             alertas_creadas.append("anomalía")
+            push_lines.append(f"⚠️ {anomalia[:200]}")
             logger.info("Alerta investigador: anomalía creada")
 
         for insight in state.insights:
@@ -131,9 +133,20 @@ def _notificar(state: InvestigadorState) -> InvestigadorState:
             )
             session.add(alert)
             alertas_creadas.append("dinero inactivo")
+            push_lines.append(f"💤 {insight[:200]}")
             logger.info("Alerta investigador: dinero inactivo creada")
 
         session.commit()
+
+    # Push notifications via Telegram
+    if push_lines:
+        try:
+            import asyncio
+            from backend.services.telegram_bot import send_notification
+            msg = "🌿 Leaf — Investigador\n\n" + "\n\n".join(push_lines)
+            asyncio.create_task(send_notification(msg))
+        except Exception as e:
+            logger.debug("Telegram push failed: %s", e)
 
     return InvestigadorState(**{**state.model_dump(), "alertas": alertas_creadas})
 
