@@ -23,11 +23,6 @@ logger = logging.getLogger(__name__)
 _checker_task: asyncio.Task | None = None
 
 
-def _download_models():
-    from backend.services.model_downloader import ensure_models
-    ensure_models()
-
-
 def _run_migrations():
     """Adds new columns to existing tables without dropping data."""
     migrations = [
@@ -69,9 +64,6 @@ async def lifespan(app: FastAPI):
 
     from backend.services.telegram_bot import start_telegram_bot, stop_telegram_bot
     start_telegram_bot()
-
-    # Download voice models in background so startup is not blocked
-    asyncio.create_task(asyncio.to_thread(_download_models))
 
     yield
 

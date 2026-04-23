@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -12,28 +13,27 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     message: str
+    session_id: str | None = None
 
 
 class ChatResponse(BaseModel):
     response: str
 
 
-@router.post("/", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest) -> ChatResponse:
-    agent = get_agent()
-    result = await agent.ainvoke({"messages": [HumanMessage(content=request.message)]})
-    return ChatResponse(response=result["messages"][-1].content)
-
-
 @router.post("/stream")
 async def chat_stream(request: ChatRequest) -> StreamingResponse:
+    session_id = request.session_id or str(uuid.uuid4())
+
     async def generate():
         try:
             agent = get_agent()
             final_response: str | None = None
 
+            yield _sse({"type": "session", "session_id": session_id})
+
             async for event in agent.astream_events(
                 {"messages": [HumanMessage(content=request.message)]},
+                config={"configurable": {"thread_id": session_id}},
                 version="v2",
             ):
                 kind = event["event"]
@@ -43,7 +43,6 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
                     chunk = event["data"].get("chunk")
                     if chunk and hasattr(chunk, "content"):
                         token = chunk.content
-                        # Only stream final-answer text; skip tool-call generation chunks
                         if isinstance(token, str) and token and not getattr(chunk, "tool_call_chunks", None):
                             final_response = (final_response or "") + token
                             yield _sse({"type": "chunk", "content": token})
@@ -69,12 +68,10 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
                             content = getattr(msg, "content", "")
                             is_ai = not getattr(msg, "tool_calls", None)
                             if content and is_ai:
-                                # Only use chain_end as fallback if streaming produced nothing
                                 if not final_response:
                                     final_response = content
                                 break
 
-            # Send complete response for clients that missed chunks (e.g. SSE reconnect)
             if final_response:
                 yield _sse({"type": "response", "content": final_response})
 

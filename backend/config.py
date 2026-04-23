@@ -6,10 +6,10 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./leaf.db"
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "gemma3"
-    ollama_vision_model: str = "moondream"
-    ollama_voice_model: str = "phi4"
-    phi4_voice_model: str = "microsoft/Phi-4-multimodal-instruct"
+    ollama_model: str = "gemma4:e4b"
+    ollama_vision_model: str = "gemma4:e4b"
+    groq_api_key: str = ""
+    groq_voice_model: str = "llama-3.3-70b-versatile"
     debug: bool = False
 
 

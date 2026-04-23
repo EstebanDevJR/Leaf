@@ -2,7 +2,7 @@
   import { createTransaction, extractReceipt, formatCOP, sendChatStream, TOOL_LABELS } from '$lib/api';
   import type { ReceiptData } from '$lib/api';
   import ReceiptConfirm from './ReceiptConfirm.svelte';
-  import { createEventDispatcher, tick } from 'svelte';
+  import { createEventDispatcher, onMount, tick } from 'svelte';
 
   // Preload GSAP once so animations are instant on first message
   let gsapReady: Promise<{ gsap: typeof import('gsap').gsap }> | null = null;
@@ -20,6 +20,28 @@
   export let disabled = false;
 
   const dispatch = createEventDispatcher<{ sent: void }>();
+
+  // ── Session ────────────────────────────────────────────────────────────────
+  let sessionId: string | null = null;
+
+  onMount(() => {
+    sessionId = localStorage.getItem('leaf_session_id');
+  });
+
+  function newConversation() {
+    sessionId = null;
+    localStorage.removeItem('leaf_session_id');
+    messages = [
+      {
+        id: uid(),
+        kind: 'leaf',
+        content: '¡Hola! Soy Leaf 🌿. ¿En qué te puedo ayudar?',
+        steps: [],
+        pending: false,
+        ts: new Date(),
+      },
+    ];
+  }
 
   interface ToolStep {
     tool: string;
@@ -79,8 +101,9 @@
     await pushLeafPending();
 
     try {
-      for await (const event of sendChatStream(text)) {
-        if      (event.type === 'chunk')       chunkLeaf(event.content);
+      for await (const event of sendChatStream(text, sessionId ?? undefined)) {
+        if      (event.type === 'session')     { sessionId = event.session_id; localStorage.setItem('leaf_session_id', sessionId); }
+        else if (event.type === 'chunk')       chunkLeaf(event.content);
         else if (event.type === 'tool_call')   addStep(event.tool, event.input);
         else if (event.type === 'tool_result') resolveStep(event.tool, event.output);
         else if (event.type === 'response')    { finalizeLeaf(event.content); dispatch('sent'); }
@@ -290,6 +313,7 @@
   <!-- ── Input ─────────────────────────────────────────────────────── -->
   <div class="input-bar">
     <div class="input-inner">
+      <button class="icon-btn" title="Nueva conversación" on:click={newConversation} {disabled}>✦</button>
       <button class="icon-btn" title="Subir foto de recibo" on:click={() => fileInput.click()} {disabled}>
         📎
       </button>
@@ -544,6 +568,7 @@
   }
 
   .icon-btn:hover:not(:disabled) { color: var(--amber); }
+  .icon-btn:first-child:hover:not(:disabled) { color: var(--green); }
 
   textarea {
     flex: 1;

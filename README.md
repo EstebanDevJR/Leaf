@@ -2,7 +2,7 @@
 
 **Agente financiero personal colombiano — local-first, multi-agente, open source.**
 
-Sin nube. Sin suscripciones. Tus datos en tu máquina.
+Sin suscripciones. Tus datos en tu máquina.
 
 ## Inicio rápido
 
@@ -11,8 +11,9 @@ Sin nube. Sin suscripciones. Tus datos en tu máquina.
 git clone https://github.com/EstebanDevJR/Leaf.git
 cd leaf
 
-# 2. Copiar variables de entorno
+# 2. Copiar variables de entorno y agregar tu clave de Groq
 cp .env.example .env
+# Edita .env y pon tu GROQ_API_KEY (gratis en console.groq.com)
 
 # 3. Levantar todo con Docker Compose
 docker compose up
@@ -22,8 +23,6 @@ docker compose exec ollama ollama pull gemma4:e4b
 ```
 
 La app estará en http://localhost:5173 y la API en http://localhost:8000.
-
-> Los modelos de voz (Whisper STT y Piper TTS) se descargan automáticamente al iniciar el servidor.
 
 ## Desarrollo local
 
@@ -102,39 +101,45 @@ curl http://localhost:8000/investigador/status
 
 ## Voz
 
-Leaf incluye procesamiento de voz completamente local — sin APIs externas, sin costo.
+Leaf incluye procesamiento de voz en tiempo real usando servicios en la nube gratuitos.
+
+| Componente | Servicio | Coste | Latencia |
+|------------|----------|-------|----------|
+| STT | Groq Whisper large-v3 | Gratis (7 200 req/día) | ~0.3 s |
+| LLM voz | Groq llama-3.3-70b-versatile | Gratis | ~0.5 s |
+| TTS | Google TTS (gTTS) | Gratis | ~0.3 s/frase |
+
+**Tiempo total a primera respuesta hablada: ~1.5 s.**
 
 ### Telegram Voice Bot
 
-Envía un mensaje de voz al bot y responde hablando.
+Envía un mensaje de voz al bot y responde con texto.
 
 ```
-Usuario → audio OGG  →  Whisper STT  →  Orquestador  →  Piper TTS  →  audio OGG
+Audio OGG  →  Groq Whisper STT  →  Orquestador  →  texto
 ```
-
-Configura el bot en `.env` y el resto es automático.
 
 ### Llamada de voz desde la Web
 
-Haz clic en **🎙️ Hablar con Leaf** en la barra superior para abrir una sesión de voz en tiempo real directamente desde el navegador. El agente transcribe tu audio, razona y responde en voz.
+Haz clic en **🎙️ Hablar con Leaf** en la barra superior. El micrófono se activa automáticamente y se detiene solo cuando detecta silencio (VAD). La respuesta llega en streaming: escuchas la primera frase mientras el resto se genera.
 
 ```
-Browser (MediaRecorder) → WebSocket /voice/ws → Whisper → Orquestador → Piper → audio
+Browser mic → VAD auto-stop → WebSocket → Groq STT → Groq LLM → gTTS por frase → MP3 chunks
 ```
 
-### Modelos de voz
+### Configuración
 
-Los modelos se descargan automáticamente al primer uso:
+Solo necesitas una API key de Groq (gratis, sin tarjeta de crédito):
 
-| Modelo | Tamaño | Destino | Rol |
-|--------|--------|---------|-----|
-| Phi-4-multimodal-instruct | ~8 GB | `~/.cache/huggingface/` | STT principal (audio nativo) |
-| Whisper `small` | ~244 MB | `~/.cache/huggingface/` | STT fallback |
-| Piper TTS español | ~65 MB | `./models/` | Síntesis de voz |
+1. Regístrate en [console.groq.com](https://console.groq.com)
+2. Crea una API key
+3. Añádela a `.env`:
 
-Phi-4-multimodal recibe el audio directamente — sin conversión a texto previa — lo que mejora la comprensión de frases financieras en español colombiano. Si no carga (VRAM insuficiente), el sistema cae automáticamente a faster-whisper.
+```env
+GROQ_API_KEY=gsk_...
+```
 
-## Telegram Bot (texto)
+## Telegram Bot
 
 ```env
 TELEGRAM_BOT_TOKEN=123456:ABCdef...   # obtenlo con @BotFather
@@ -157,11 +162,8 @@ DEBUG=false
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 
-# Voz (opcional — modelos se auto-descargan)
-WHISPER_MODEL_SIZE=small                              # fallback STT
-PIPER_VOICE_PATH=models/es_ES-davefx-medium.onnx
-OLLAMA_VOICE_MODEL=phi4                               # LLM con herramientas financieras
-PHI4_VOICE_MODEL=microsoft/Phi-4-multimodal-instruct  # STT multimodal principal
+# Voz — STT: Groq Whisper (gratis). TTS: Google TTS (gratis, sin key)
+GROQ_API_KEY=
 ```
 
 ## Arquitectura
@@ -173,9 +175,8 @@ leaf/
 │   ├── tools/            # 40+ herramientas tipadas
 │   ├── api/routes/       # chat, transactions, budgets, alerts, investigador,
 │   │                     # ocr, savings_goals, import_export, profiles, voice
-│   ├── voice/            # VoicePipeline (STT → LLM → TTS)
-│   ├── services/         # alert_checker, telegram_bot, voice_stt,
-│   │                     # voice_tts, model_downloader
+│   ├── voice/            # VoicePipeline (Groq STT → LLM → gTTS)
+│   ├── services/         # alert_checker, telegram_bot, groq_stt, voice_tts
 │   ├── scheduler.py      # Job diario 08:00 + hook on_new_transaction
 │   ├── db/               # SQLite engine + session
 │   └── models/           # Transaction, Budget, Alert, InvestigadorConfig,
@@ -184,7 +185,6 @@ leaf/
 │   └── src/lib/
 │       ├── components/   # Chat, TransactionDrawer, SavingsGoals, etc.
 │       └── voice/        # CallButton.svelte + WebRTCHandler.ts
-├── models/               # Piper TTS (auto-descargado)
 └── docker-compose.yml
 ```
 
@@ -194,9 +194,9 @@ leaf/
 |------|------------|
 | Agentes | LangGraph |
 | LLM | Ollama + gemma4 |
-| LLM voz | Ollama + phi-4 |
-| STT | Phi-4-multimodal (HuggingFace) + faster-whisper (fallback) |
-| TTS | Piper TTS |
+| STT | Groq Whisper large-v3 (cloud, gratis) |
+| LLM voz | Groq llama-3.3-70b-versatile (cloud, gratis) |
+| TTS | Google TTS — gTTS (cloud, gratis) |
 | API | FastAPI + Python 3.11 |
 | ORM | SQLModel |
 | DB | SQLite |
@@ -259,7 +259,7 @@ GET    /health                   estado del servicio
 - [x] Importación de facturas electrónicas DIAN (UBL XML)
 - [x] CDT con tasas en vivo
 - [x] Streaming token a token en el chat
-- [x] Voz local (Whisper STT + Piper TTS) — Telegram y Web
+- [x] Voz en tiempo real — Groq STT + Groq LLM + gTTS con streaming por frases (~1.5 s TTFA)
 
 ---
 

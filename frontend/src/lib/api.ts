@@ -59,6 +59,7 @@ export interface ReceiptData {
 }
 
 export type ChatEvent =
+  | { type: 'session'; session_id: string }
   | { type: 'chunk'; content: string }
   | { type: 'tool_call'; tool: string; input: Record<string, unknown> }
   | { type: 'tool_result'; tool: string; output: string }
@@ -66,11 +67,11 @@ export type ChatEvent =
   | { type: 'done' }
   | { type: 'error'; message: string };
 
-export async function* sendChatStream(message: string): AsyncGenerator<ChatEvent> {
+export async function* sendChatStream(message: string, sessionId?: string): AsyncGenerator<ChatEvent> {
   const res = await fetch(`${API_URL}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, session_id: sessionId ?? null }),
   });
 
   if (!res.ok || !res.body) throw new Error('Error de conexión con Leaf');
