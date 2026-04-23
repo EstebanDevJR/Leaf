@@ -311,6 +311,103 @@ export async function toggleInvestigador(enabled: boolean): Promise<void> {
   });
 }
 
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+export interface DashboardSummary {
+  balance: number;
+  month_income: number;
+  month_expenses: number;
+  month_savings: number;
+  savings_rate: number;
+  income_delta_pct: number;
+  expenses_delta_pct: number;
+  transaction_count: number;
+}
+
+export interface CashflowPoint {
+  label: string;
+  month: string;
+  income: number;
+  expenses: number;
+}
+
+export interface EmergencyFund {
+  balance: number;
+  avg_monthly_expenses: number;
+  coverage_months: number;
+  target_min: number;
+  target_recommended: number;
+  target_optimal: number;
+  coverage_pct: number;
+  gap: number;
+  monthly_savings: number;
+  months_to_goal: number | null;
+  status: 'complete' | 'warning' | 'critical';
+}
+
+export interface CdtBank {
+  bank: string;
+  rates: Record<string, number>;
+  best_rate: number;
+  best_term: number;
+}
+
+export interface InvestmentsData {
+  is_live: boolean;
+  banks: CdtBank[];
+  inflation_rate: number;
+  banrep_rate: number;
+}
+
+export interface WhatIfResult {
+  scenario: string;
+  label: string;
+  base_income: number;
+  base_expenses: number;
+  base_savings: number;
+  new_savings: number;
+  monthly_diff: number;
+  projections: Record<string, { extra_savings: number; total_savings: number; vs_current: number }>;
+}
+
+export async function getDashboardSummary(): Promise<DashboardSummary> {
+  const res = await fetch(`${API_URL}/dashboard/summary`);
+  if (!res.ok) throw new Error('Error al cargar resumen del dashboard');
+  return res.json();
+}
+
+export async function getDashboardCashflow(months = 12): Promise<CashflowPoint[]> {
+  const res = await fetch(`${API_URL}/dashboard/cashflow?months=${months}`);
+  if (!res.ok) throw new Error('Error al cargar cashflow');
+  return res.json();
+}
+
+export async function getEmergencyFund(): Promise<EmergencyFund> {
+  const res = await fetch(`${API_URL}/dashboard/emergency-fund`);
+  if (!res.ok) throw new Error('Error al cargar fondo de emergencia');
+  return res.json();
+}
+
+export async function getInvestments(): Promise<InvestmentsData> {
+  const res = await fetch(`${API_URL}/dashboard/investments`);
+  if (!res.ok) throw new Error('Error al cargar inversiones');
+  return res.json();
+}
+
+export async function simulateWhatIf(params: {
+  scenario: string;
+  change_pct?: number;
+  change_amount?: number;
+}): Promise<WhatIfResult> {
+  const res = await fetch(`${API_URL}/dashboard/whatif`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error('Error en la simulación');
+  return res.json();
+}
+
 export const TOOL_LABELS: Record<string, string> = {
   register_expense:      'registrando gasto',
   register_income:       'registrando ingreso',

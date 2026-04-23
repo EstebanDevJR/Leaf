@@ -9,7 +9,10 @@
     expenses: number;
   }
 
-  let { data }: { data: MonthData[] } = $props();
+  let {
+    data,
+    showIncome = false,
+  }: { data: MonthData[]; showIncome?: boolean } = $props();
 
   let canvas: HTMLCanvasElement;
   let chart: ChartType | null = null;
@@ -21,59 +24,115 @@
   });
 
   $effect(() => {
-    if (chart && data) {
-      chart.data.labels = data.map(d => d.label);
-      chart.data.datasets[0].data = data.map(d => d.income);
-      chart.data.datasets[1].data = data.map(d => d.expenses);
-      chart.update();
+    if (!chart || !data) return;
+    chart.data.labels = data.map(d => d.label);
+    chart.data.datasets[0].data = data.map(d => d.expenses);
+    if (showIncome && chart.data.datasets[1]) {
+      chart.data.datasets[1].data = data.map(d => d.income);
     }
+    chart.update('none');
   });
 
   function buildChart(Chart: typeof import('chart.js').Chart) {
+    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+
+    const gradientGreen = ctx.createLinearGradient(0, 0, 0, 240);
+    gradientGreen.addColorStop(0, 'rgba(74, 222, 128, 0.28)');
+    gradientGreen.addColorStop(0.65, 'rgba(74, 222, 128, 0.05)');
+    gradientGreen.addColorStop(1, 'rgba(74, 222, 128, 0.00)');
+
+    const gradientBlue = ctx.createLinearGradient(0, 0, 0, 240);
+    gradientBlue.addColorStop(0, 'rgba(96, 165, 250, 0.22)');
+    gradientBlue.addColorStop(1, 'rgba(96, 165, 250, 0.00)');
+
+    const datasets: import('chart.js').ChartDataset<'line'>[] = [
+      {
+        label: 'Gastos',
+        data: data.map(d => d.expenses),
+        borderColor: '#4ade80',
+        borderWidth: 2.5,
+        backgroundColor: gradientGreen,
+        fill: true,
+        tension: 0.42,
+        pointRadius: data.length > 6 ? 3 : 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: '#4ade80',
+        pointBorderColor: '#141714',
+        pointBorderWidth: 2,
+      },
+    ];
+
+    if (showIncome) {
+      datasets.push({
+        label: 'Ingresos',
+        data: data.map(d => d.income),
+        borderColor: '#60a5fa',
+        borderWidth: 2,
+        backgroundColor: gradientBlue,
+        fill: true,
+        tension: 0.42,
+        pointRadius: data.length > 6 ? 3 : 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: '#60a5fa',
+        pointBorderColor: '#141714',
+        pointBorderWidth: 2,
+      });
+    }
+
     chart = new Chart(canvas, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels: data.map(d => d.label),
-        datasets: [
-          {
-            label: 'Ingresos',
-            data: data.map(d => d.income),
-            backgroundColor: 'rgba(34, 197, 94, 0.7)',
-            borderColor: '#22c55e',
-            borderWidth: 1,
-            borderRadius: 4,
-          },
-          {
-            label: 'Gastos',
-            data: data.map(d => d.expenses),
-            backgroundColor: 'rgba(248, 113, 113, 0.7)',
-            borderColor: '#f87171',
-            borderWidth: 1,
-            borderRadius: 4,
-          },
-        ],
+        datasets,
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: {
-            labels: { color: '#94a3b8', font: { size: 11 } },
+            display: showIncome,
+            labels: {
+              color: '#5a6a5a',
+              font: { size: 11, family: 'Inter' },
+              boxWidth: 10,
+              padding: 10,
+            },
           },
           tooltip: {
+            backgroundColor: '#1d221d',
+            borderColor: '#2d342d',
+            borderWidth: 1,
+            titleColor: '#5a6a5a',
+            bodyColor: '#f0f0ef',
+            padding: 10,
+            cornerRadius: 8,
             callbacks: {
-              label: ctx => ` ${ctx.dataset.label}: ${formatCOP(ctx.parsed.y)}`,
+              label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
+                ` ${ctx.dataset.label}: ${formatCOP(ctx.parsed.y ?? 0)}`,
             },
           },
         },
         scales: {
-          x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+          x: {
+            ticks: { color: '#5a6a5a', font: { size: 11, family: 'Inter' } },
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            border: { display: false },
+          },
           y: {
             ticks: {
-              color: '#64748b',
-              callback: v => `$${(Number(v) / 1_000_000).toFixed(1)}M`,
+              color: '#5a6a5a',
+              font: { size: 11, family: 'Inter' },
+              callback: (v: number | string) => {
+                const n = Number(v);
+                return n >= 1_000_000
+                  ? `${(n / 1_000_000).toFixed(1)}M`
+                  : `${(n / 1_000).toFixed(0)}k`;
+              },
+              maxTicksLimit: 5,
             },
-            grid: { color: '#1e293b' },
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            border: { display: false },
           },
         },
       },
@@ -83,15 +142,15 @@
   onDestroy(() => { chart?.destroy(); });
 </script>
 
-<div class="chart-wrapper">
-  <h3>Cashflow — Últimos 6 meses</h3>
-  <div class="canvas-box">
-    <canvas bind:this={canvas}></canvas>
-  </div>
+<div class="wrap">
+  <canvas bind:this={canvas}></canvas>
 </div>
 
 <style>
-  .chart-wrapper { background: #1a2332; border-radius: 12px; padding: 16px; }
-  h3 { font-size: 0.85rem; color: #94a3b8; margin: 0 0 12px; font-weight: 500; }
-  .canvas-box { height: 180px; position: relative; }
+  .wrap {
+    width: 100%;
+    height: 100%;
+    min-height: 160px;
+  }
+  canvas { display: block; }
 </style>
