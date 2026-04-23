@@ -12,6 +12,8 @@ from backend.api.routes import investigador as investigador_router
 from backend.api.routes import import_export, profiles, savings_goals
 from backend.api.routes import voice_webrtc
 from backend.api.routes import dashboard as dashboard_router
+from backend.api.routes import subscriptions as subscriptions_router
+from backend.api.routes import health as health_router
 from backend.db.database import create_tables, engine
 from backend.models import alert as _alert_model  # noqa: F401
 from backend.models import budget as _budget_model  # noqa: F401
@@ -100,6 +102,8 @@ app.include_router(import_export.router, prefix="/io", tags=["import-export"])
 app.include_router(profiles.router, prefix="/profiles", tags=["profiles"])
 app.include_router(voice_webrtc.router, prefix="/voice", tags=["voice"])
 app.include_router(dashboard_router.router, prefix="/dashboard", tags=["dashboard"])
+app.include_router(subscriptions_router.router, prefix="/subscriptions", tags=["subscriptions"])
+app.include_router(health_router.router, prefix="/health", tags=["health"])
 
 
 @app.get("/health")
