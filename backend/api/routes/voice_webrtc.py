@@ -1,15 +1,15 @@
 """Voice WebSocket endpoint — real-time voice call with Leaf agent.
 
 Protocol (JSON frames over WebSocket):
-  Client → Server: {"type": "audio", "data": "<base64 WAV>"}
-  Server → Client: {"type": "transcript", "text": "..."}
-  Server → Client: {"type": "response",  "text": "..."}
-  Server → Client: {"type": "audio",     "data": "<base64 WAV>"}
-  Server → Client: {"type": "error",     "message": "..."}
+  Client → Server: {"type": "audio",       "data": "<base64 webm>"}
+  Server → Client: {"type": "transcript",  "text": "..."}
+  Server → Client: {"type": "response",    "text": "..."}
+  Server → Client: {"type": "audio_chunk", "data": "<base64 MP3>"}  (one per sentence)
+  Server → Client: {"type": "error",       "message": "..."}
   Server → Client: {"type": "done"}
 
 REST fallback:
-  POST /voice/chat  — multipart with audio file, returns JSON + audio URL
+  POST /voice/chat  — multipart with audio file, returns JSON + base64 audio
 """
 
 import base64
@@ -17,7 +17,6 @@ import logging
 import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
-from fastapi.responses import Response
 
 from backend.voice.pipecat_pipeline import VoicePipeline
 
@@ -26,6 +25,15 @@ logger = logging.getLogger(__name__)
 
 # One pipeline per WebSocket session — keeps conversation context isolated
 _sessions: dict[str, VoicePipeline] = {}
+
+
+async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
+    """Send JSON and gracefully handle disconnected clients."""
+    try:
+        await websocket.send_json(payload)
+        return True
+    except (WebSocketDisconnect, RuntimeError):
+        return False
 
 
 @router.websocket("/ws")
@@ -46,35 +54,38 @@ async def voice_ws(websocket: WebSocket):
 
             raw_b64 = data.get("data", "")
             if not raw_b64:
-                await websocket.send_json({"type": "error", "message": "No audio data received."})
+                if not await _safe_send_json(websocket, {"type": "error", "message": "No audio data received."}):
+                    break
                 continue
 
             try:
                 wav_bytes = base64.b64decode(raw_b64)
             except Exception:
-                await websocket.send_json({"type": "error", "message": "Invalid base64 audio."})
+                if not await _safe_send_json(websocket, {"type": "error", "message": "Invalid base64 audio."}):
+                    break
                 continue
 
             try:
-                transcript, response_text, audio_wav = await pipeline.process(wav_bytes)
+                async for event in pipeline.stream_process(wav_bytes):
+                    event_type = event["type"]
+                    if event_type == "audio_chunk":
+                        payload = {
+                            "type": "audio_chunk",
+                            "data": base64.b64encode(event["data"]).decode(),
+                        }
+                    else:
+                        payload = event
 
-                await websocket.send_json({"type": "transcript", "text": transcript})
-                await websocket.send_json({"type": "response",   "text": response_text})
-
-                if audio_wav:
-                    await websocket.send_json({
-                        "type": "audio",
-                        "data": base64.b64encode(audio_wav).decode(),
-                    })
-
-                await websocket.send_json({"type": "done"})
+                    if not await _safe_send_json(websocket, payload):
+                        return
 
             except Exception as e:
                 logger.error("Voice pipeline error (session %s): %s", session_id, e)
-                await websocket.send_json({
+                if not await _safe_send_json(websocket, {
                     "type": "error",
                     "message": "Error procesando tu voz. Intenta de nuevo.",
-                })
+                }):
+                    break
 
     except WebSocketDisconnect:
         logger.info("Voice session ended: %s", session_id)

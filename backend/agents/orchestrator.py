@@ -1,6 +1,7 @@
 """Orquestador principal de Leaf — LangGraph ReAct agent."""
 
 from langchain_ollama import ChatOllama
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
 from backend.agents.dian import DIAN_TOOLS
@@ -79,30 +80,49 @@ Usa formulario_210 para generar la declaración de renta preliminar (Formulario 
 Usa get_live_cdt_rates para tasas CDT actualizadas (siempre con disclaimer legal).
 Usa import_dian_factura para importar facturas electrónicas DIAN en formato XML."""
 
+_memory = MemorySaver()
 _agent = None
-_voice_agent = None
+
+VOICE_SYSTEM_PROMPT = """Eres Leaf 🌿, asistente financiero colombiano respondiendo por VOZ.
+Sé MUY conciso — máximo 2-3 oraciones por respuesta. Sin listas ni formato markdown.
+Habla naturalmente como en una conversación real.
+SIEMPRE usa pesos colombianos (COP). NUNCA digas "dólares" ni "$" sin aclarar que son pesos. Di "50 mil pesos" o "50 000 pesos", nunca "50 dollars". Confirma transacciones con monto y categoría solamente.
+
+Herramientas disponibles en modo voz: registro y consulta de gastos e ingresos, presupuestos, resumen mensual, predicción de gastos y metas de ahorro.
+Si el usuario pide algo fuera de eso (impuestos, OCR, facturas, análisis avanzado), responde en una frase: "Eso solo está disponible en el chat de texto." No intentes usar herramientas que no tienes."""
+
+_groq_voice_agent = None
 
 
-def _build_agent(model: str):
+def get_groq_voice_agent():
+    global _groq_voice_agent
+    if _groq_voice_agent is None:
+        from langchain_groq import ChatGroq
+        llm = ChatGroq(
+            model=settings.groq_voice_model,
+            api_key=settings.groq_api_key,
+            temperature=0.3,
+        )
+        # Keep tool count low — too many tools causes malformed tool calls on Groq
+        voice_tools = TRANSACTION_TOOLS + INSIGHTS_TOOLS + SAVINGS_GOAL_TOOLS
+        _groq_voice_agent = create_react_agent(llm, voice_tools, prompt=VOICE_SYSTEM_PROMPT)
+    return _groq_voice_agent
+
+
+def _build_agent(model: str, checkpointer=None):
     llm = ChatOllama(model=model, base_url=settings.ollama_base_url)
     extra_tools = [whatif_simulator, formulario_210, get_live_cdt_rates, import_dian_factura]
     all_tools = (
         TRANSACTION_TOOLS + OCR_TOOLS + INSIGHTS_TOOLS + DIAN_TOOLS
         + _get_investigador_tools() + SAVINGS_GOAL_TOOLS + extra_tools
     )
-    return create_react_agent(llm, all_tools, prompt=SYSTEM_PROMPT)
+    return create_react_agent(llm, all_tools, prompt=SYSTEM_PROMPT, checkpointer=checkpointer)
 
 
 def get_agent():
     global _agent
     if _agent is None:
-        _agent = _build_agent(settings.ollama_model)
+        _agent = _build_agent(settings.ollama_model, checkpointer=_memory)
     return _agent
 
 
-def get_voice_agent():
-    """Same agent as chat but backed by the faster voice model (default: phi4)."""
-    global _voice_agent
-    if _voice_agent is None:
-        _voice_agent = _build_agent(settings.ollama_voice_model)
-    return _voice_agent

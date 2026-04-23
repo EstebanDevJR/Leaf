@@ -106,9 +106,9 @@ async def _run_bot():
             await update.message.reply_text("Ocurrió un error. Intenta de nuevo.")
 
     async def handle_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-        """Receives a Telegram voice message, transcribes it, invokes the agent, replies with audio."""
+        """Receives a Telegram voice message (OGG), transcribes via Groq, replies with text."""
         await update.message.reply_text("🎤 Escuché tu mensaje, procesando...")
-        ogg_path = wav_path = None
+        ogg_path = None
         try:
             # 1. Download the OGG Opus file from Telegram
             voice_file = await ctx.bot.get_file(update.message.voice.file_id)
@@ -116,38 +116,17 @@ async def _run_bot():
                 ogg_path = f.name
             await voice_file.download_to_drive(ogg_path)
 
-            # 2. Convert OGG → WAV mono 16-bit 16kHz using pydub + ffmpeg
-            try:
-                from pydub import AudioSegment
-                audio = AudioSegment.from_ogg(ogg_path)
-                audio = audio.set_channels(1).set_sample_width(2).set_frame_rate(16000)
-                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                    wav_path = f.name
-                audio.export(wav_path, format="wav")
-            except Exception as conv_err:
-                logger.error("OGG→WAV conversion failed: %s", conv_err)
-                await update.message.reply_text(
-                    "No pude convertir el audio. ¿Tienes ffmpeg instalado?"
-                )
-                return
-
-            # 3. Transcribe — Phi-4-multimodal con fallback a faster-whisper
-            try:
-                from backend.services.phi4_voice import get_phi4_stt
-                stt = get_phi4_stt()
-            except Exception:
-                from backend.services.voice_stt import VoiceSTT
-                stt = VoiceSTT()
-            transcript = await asyncio.to_thread(stt.transcribe, wav_path)
+            # 2. Transcribe — Groq Whisper accepts OGG/Opus natively
+            from backend.services.stt_factory import get_stt
+            stt = get_stt()
+            transcript = await asyncio.to_thread(stt.transcribe, ogg_path)
             if not transcript:
-                await update.message.reply_text(
-                    "No te entendí bien, ¿puedes repetir?"
-                )
+                await update.message.reply_text("No te entendí bien, ¿puedes repetir?")
                 return
 
             logger.info("Voice transcript: %s", transcript)
 
-            # 4. Route to Leaf orchestrator
+            # 3. Route to Leaf orchestrator
             from backend.agents.orchestrator import get_agent
             agent = get_agent()
             result = await asyncio.to_thread(
@@ -160,31 +139,17 @@ async def _run_bot():
                 "No pude procesar tu mensaje.",
             )
 
-            # 5. Synthesize response with Piper TTS
-            from backend.services.voice_tts import VoiceTTS
-            tts = VoiceTTS()
-            audio_bytes = await asyncio.to_thread(tts.synthesize, reply_text[:500])
-
-            if audio_bytes:
-                import io
-                await update.message.reply_voice(
-                    voice=io.BytesIO(audio_bytes),
-                    caption=reply_text[:1024],
-                )
-            else:
-                # TTS fallback: send text
-                await update.message.reply_text(reply_text[:4000])
+            await update.message.reply_text(reply_text[:4000])
 
         except Exception as e:
             logger.error("Telegram handle_voice error: %s", e)
             await update.message.reply_text("Ocurrió un error procesando tu voz. Intenta de nuevo.")
         finally:
-            for path in (ogg_path, wav_path):
-                if path and os.path.exists(path):
-                    try:
-                        os.unlink(path)
-                    except OSError:
-                        pass
+            if ogg_path and os.path.exists(ogg_path):
+                try:
+                    os.unlink(ogg_path)
+                except OSError:
+                    pass
 
     # ── Build and run ─────────────────────────────────────────────────────────
 

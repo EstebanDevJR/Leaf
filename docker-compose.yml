@@ -17,13 +17,11 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
-      - ./models:/app/models
     environment:
       - DATABASE_URL=sqlite:////app/data/leaf.db
       - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=gemma3
-      - PIPER_VOICE_PATH=/app/models/es_ES-davefx-medium.onnx
-      - OLLAMA_VOICE_MODEL=phi4
+      - OLLAMA_MODEL=gemma4:e4b
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
     depends_on:
       ollama:
         condition: service_healthy
