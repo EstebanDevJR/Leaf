@@ -35,6 +35,9 @@ coverage/
 # Local data
 leaf.db
 
+# Modelos de voz locales (no se commitean — binarios grandes)
+models/
+
 # IDE / editor
 .claude/
 .vscode/

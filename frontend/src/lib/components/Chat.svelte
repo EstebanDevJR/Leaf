@@ -3,6 +3,16 @@
   import type { ReceiptData } from '$lib/api';
   import ReceiptConfirm from './ReceiptConfirm.svelte';
   import { createEventDispatcher, onMount, tick } from 'svelte';
+  import { marked } from 'marked';
+
+  // Configurar marked: links en nueva pestaña, sin encabezados gigantes
+  marked.setOptions({ breaks: true });
+
+  function renderMd(text: string): string {
+    const raw = marked.parse(text) as string;
+    // Abrir links externos en nueva pestaña
+    return raw.replace(/<a href=/g, '<a target="_blank" rel="noopener" href=');
+  }
 
   // Preload GSAP once so animations are instant on first message
   let gsapReady: Promise<{ gsap: typeof import('gsap').gsap }> | null = null;
@@ -285,7 +295,7 @@
                   <span class="dot"></span><span class="dot"></span><span class="dot"></span>
                 </div>
               {:else if msg.content}
-                <p class="bubble-text leaf-text">{msg.content}</p>
+                <div class="bubble-text leaf-text md-body">{@html renderMd(msg.content)}</div>
               {:else if msg.pending}
                 <p class="bubble-text dim">procesando...</p>
               {/if}
@@ -635,4 +645,52 @@
     .messages-inner { padding: 20px 12px; }
     .bubble, .leaf-body { max-width: 90%; }
   }
+
+  /* ── Markdown body ── */
+  :global(.md-body) { font-size: 14px; line-height: 1.65; color: var(--text); }
+  :global(.md-body p)  { margin: 0 0 6px; }
+  :global(.md-body p:last-child) { margin-bottom: 0; }
+  :global(.md-body strong) { color: var(--green); font-weight: 600; }
+  :global(.md-body em)     { color: var(--text-dim); font-style: italic; }
+  :global(.md-body ul), :global(.md-body ol) {
+    margin: 4px 0 6px 18px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  :global(.md-body li) { font-size: 13.5px; }
+  :global(.md-body h1), :global(.md-body h2), :global(.md-body h3) {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--green);
+    margin: 8px 0 2px;
+  }
+  :global(.md-body code) {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 12px;
+    font-family: monospace;
+  }
+  :global(.md-body pre) {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    font-size: 12px;
+    margin: 6px 0;
+  }
+  :global(.md-body pre code) { background: none; border: none; padding: 0; }
+  :global(.md-body a) { color: var(--green); text-decoration: underline; }
+  :global(.md-body blockquote) {
+    border-left: 2px solid var(--green-dim);
+    margin: 4px 0;
+    padding: 2px 10px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+  :global(.md-body hr) { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
 </style>

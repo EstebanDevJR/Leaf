@@ -10,7 +10,6 @@ from backend.api.routes import chat, ocr, transactions
 from backend.api.routes import alerts, budgets
 from backend.api.routes import investigador as investigador_router
 from backend.api.routes import import_export, profiles, savings_goals
-from backend.api.routes import voice_webrtc
 from backend.api.routes import dashboard as dashboard_router
 from backend.api.routes import subscriptions as subscriptions_router
 from backend.api.routes import health as health_router
@@ -41,6 +40,22 @@ def _run_migrations():
                 pass  # Column already exists
 
 
+async def _warmup_agent():
+    """Pre-carga el modelo Ollama al arrancar para que Telegram y el chat respondan de inmediato."""
+    await asyncio.sleep(3)  # Dejar que el servidor termine de inicializarse
+    try:
+        from backend.agents.orchestrator import get_agent
+        agent = get_agent()
+        await asyncio.to_thread(
+            agent.invoke,
+            {"messages": [{"role": "user", "content": "hola"}]},
+            {"configurable": {"thread_id": "__warmup__"}},
+        )
+        logger.info("✅ Agente precalentado — Ollama modelo listo.")
+    except Exception as e:
+        logger.warning("Warmup del agente falló (no crítico): %s", e)
+
+
 async def _periodic_alert_check():
     """Runs DIAN alert checks every 12 hours."""
     from backend.services.alert_checker import check_all
@@ -61,6 +76,7 @@ async def lifespan(app: FastAPI):
 
     global _checker_task
     _checker_task = asyncio.create_task(_periodic_alert_check())
+    asyncio.create_task(_warmup_agent())
 
     from backend.scheduler import start_scheduler, stop_scheduler
     start_scheduler()
@@ -100,7 +116,6 @@ app.include_router(investigador_router.router, prefix="/investigador", tags=["in
 app.include_router(savings_goals.router, prefix="/savings-goals", tags=["savings-goals"])
 app.include_router(import_export.router, prefix="/io", tags=["import-export"])
 app.include_router(profiles.router, prefix="/profiles", tags=["profiles"])
-app.include_router(voice_webrtc.router, prefix="/voice", tags=["voice"])
 app.include_router(dashboard_router.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(subscriptions_router.router, prefix="/subscriptions", tags=["subscriptions"])
 app.include_router(health_router.router, prefix="/health", tags=["health"])

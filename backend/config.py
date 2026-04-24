@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     ollama_vision_model: str = "gemma4:e4b"
     groq_api_key: str = ""
     groq_voice_model: str = "llama-3.3-70b-versatile"
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
     debug: bool = False
 
 

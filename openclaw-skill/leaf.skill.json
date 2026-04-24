@@ -1,8 +1,8 @@
 {
   "id": "leaf",
   "name": "Leaf 🌿",
-  "version": "2.0.0",
-  "description": "Agente financiero personal para Colombia — registra gastos, analiza presupuestos y calcula impuestos, todo local.",
+  "version": "3.0.0",
+  "description": "Agente financiero personal para Colombia — gastos, presupuestos, CDT, impuestos, metas de ahorro, salud financiera y más. 100% local.",
   "author": "leaf-project",
   "categories": ["finance", "productivity", "colombia"],
   "language": "es-CO",
@@ -64,25 +64,131 @@
       }
     },
     {
+      "name": "calculate_savings_goal",
+      "description": "Crea o consulta una meta de ahorro: cuánto ahorrar por mes para llegar a la meta.",
+      "parameters": {
+        "goal_name": "string — nombre de la meta (viaje, carro, emergencia...)",
+        "target_amount": "number — monto objetivo en COP",
+        "months": "number — plazo en meses"
+      }
+    },
+    {
+      "name": "emergency_fund_status",
+      "description": "Muestra el estado del fondo de emergencia: cuántos meses de gastos cubre el ahorro actual.",
+      "parameters": {}
+    },
+    {
+      "name": "simulate_whatif",
+      "description": "Simula escenarios: ¿qué pasa si ahorro más, reduzco gastos o invierto?",
+      "parameters": {
+        "scenario": "string — ahorro|gastos|inversion|ingreso",
+        "change_pct": "number — cambio porcentual (ej: 10 = +10%)",
+        "months": "number — horizonte de proyección"
+      }
+    },
+    {
+      "name": "get_live_cdt_rates",
+      "description": "Consulta tasas CDT actualizadas de bancos colombianos reportadas a la SFC (datos.gov.co). Incluye proyección de rendimiento.",
+      "parameters": {
+        "term_months": "number — plazo en meses: 3, 6, 12 o 24",
+        "amount": "number? — monto en COP para calcular rendimiento estimado"
+      }
+    },
+    {
+      "name": "calculate_take_home",
+      "description": "Calcula sueldo neto real: descuenta salud, pensión, retención en la fuente (tabla DIAN 2026) y exención laboral.",
+      "parameters": {
+        "sueldo_bruto": "number — salario bruto mensual en COP"
+      }
+    },
+    {
+      "name": "generate_financial_health_report",
+      "description": "Genera informe de salud financiera con score 0-100: tasa de ahorro, fondo de emergencia, metas activas y cumplimiento de presupuesto.",
+      "parameters": {}
+    },
+    {
+      "name": "find_subscriptions",
+      "description": "Detecta suscripciones y pagos recurrentes en los últimos 90 días. Identifica posibles suscripciones sin usar.",
+      "parameters": {}
+    },
+    {
+      "name": "explain_concept",
+      "description": "Explica un concepto financiero colombiano en lenguaje simple: CDT, UVT, GMF, retención, TES, ETF, FOGAFÍN, pensión, SMMLV, tasa EA, etc.",
+      "parameters": {
+        "concept": "string — nombre del concepto (ej: 'CDT', 'GMF', 'interés compuesto')"
+      }
+    },
+    {
       "name": "calculate_renta",
-      "description": "Estima el impuesto de renta colombiano basado en ingresos registrados.",
+      "description": "Estima el impuesto de renta colombiano (persona natural) basado en ingresos registrados.",
       "parameters": {
         "year": "number — año fiscal (0 = año en curso)"
       }
     },
     {
       "name": "check_deadlines",
-      "description": "Consulta fechas límite de la DIAN para declaración de renta.",
+      "description": "Consulta fechas límite de la DIAN para declaración de renta según los últimos dígitos del NIT/cédula.",
       "parameters": {
-        "nit_suffix": "string — últimos 2 dígitos del NIT (opcional)"
+        "nit_suffix": "string? — últimos 2 dígitos del NIT"
+      }
+    },
+    {
+      "name": "calcular_gmf",
+      "description": "Calcula el Gravamen a los Movimientos Financieros (4×1000) para una transacción.",
+      "parameters": {
+        "amount": "number — monto de la transacción en COP"
+      }
+    },
+    {
+      "name": "analyze_patterns",
+      "description": "Analiza patrones de gasto: categorías más costosas, tendencias por semana/mes.",
+      "parameters": {
+        "months": "number? — número de meses a analizar (default: 3)"
+      }
+    },
+    {
+      "name": "detect_anomaly",
+      "description": "Detecta gastos anormales o inusuales respecto al historial del usuario.",
+      "parameters": {}
+    },
+    {
+      "name": "predict_expenses",
+      "description": "Predice los gastos del mes actual basándose en el historial.",
+      "parameters": {}
+    },
+    {
+      "name": "extract_receipt",
+      "description": "Extrae información de una imagen de recibo o factura vía OCR y registra el gasto automáticamente.",
+      "parameters": {
+        "image_url": "string — URL o base64 de la imagen del recibo"
+      }
+    },
+    {
+      "name": "generate_report",
+      "description": "Genera un reporte financiero completo exportable (PDF/CSV).",
+      "parameters": {
+        "month": "string — YYYY-MM o 'current'"
       }
     }
   ],
   "example_prompts": [
     "gasté 45 mil en el éxito en comida",
+    "me llegaron 4 palos de salario",
     "¿cómo voy con mi presupuesto de comida?",
     "resume mis finanzas de este mes",
+    "quiero ahorrar 10 palos para un viaje en 8 meses",
+    "¿cómo está mi fondo de emergencia?",
+    "¿qué pasa si ahorro un 10% más cada mes?",
+    "¿qué CDT paga más a 12 meses?",
+    "¿cuánto me queda de un sueldo de 5 palos?",
+    "¿cómo está mi salud financiera?",
+    "¿qué suscripciones tengo que no estoy usando?",
+    "¿qué es el GMF?",
+    "explícame cómo funciona el interés compuesto",
     "¿cuánto renta tengo que pagar este año?",
-    "¿cuándo es mi fecha límite para declarar renta? mi cédula termina en 72"
+    "¿cuándo es mi fecha límite para declarar renta? mi cédula termina en 72",
+    "¿cuánto me cobran de 4x1000 si transfiero 2 palos?",
+    "¿en qué categoría gasto más?",
+    "¿hubo algún gasto raro este mes?"
   ]
 }

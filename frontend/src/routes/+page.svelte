@@ -13,7 +13,6 @@
   import ImportExport from '$lib/components/ImportExport.svelte';
   import ProfileSwitcher from '$lib/components/ProfileSwitcher.svelte';
   import AlertBanner from '$lib/components/AlertBanner.svelte';
-  import CallButton from '$lib/voice/CallButton.svelte';
   import CashflowChart from '$lib/components/CashflowChart.svelte';
   import WhatIfSimulator from '$lib/components/WhatIfSimulator.svelte';
   import InvestmentRecommendations from '$lib/components/InvestmentRecommendations.svelte';
@@ -237,7 +236,6 @@
         {:else}
           <button class="icon-btn" title="Sin alertas">🔔</button>
         {/if}
-        <CallButton />
         <div class="avatar-wrap">
           <div class="avatar">L</div>
         </div>

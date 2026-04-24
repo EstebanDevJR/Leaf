@@ -91,31 +91,6 @@ Usa explain_concept para educación financiera sobre cualquier concepto (CDT, UV
 _memory = MemorySaver()
 _agent = None
 
-VOICE_SYSTEM_PROMPT = """Eres Leaf 🌿, asistente financiero colombiano respondiendo por VOZ.
-Sé MUY conciso — máximo 2-3 oraciones por respuesta. Sin listas ni formato markdown.
-Habla naturalmente como en una conversación real.
-SIEMPRE usa pesos colombianos (COP). NUNCA digas "dólares" ni "$" sin aclarar que son pesos. Di "50 mil pesos" o "50 000 pesos", nunca "50 dollars". Confirma transacciones con monto y categoría solamente.
-
-Herramientas disponibles en modo voz: registro y consulta de gastos e ingresos, presupuestos, resumen mensual, predicción de gastos y metas de ahorro.
-Si el usuario pide algo fuera de eso (impuestos, OCR, facturas, análisis avanzado), responde en una frase: "Eso solo está disponible en el chat de texto." No intentes usar herramientas que no tienes."""
-
-_groq_voice_agent = None
-
-
-def get_groq_voice_agent():
-    global _groq_voice_agent
-    if _groq_voice_agent is None:
-        from langchain_groq import ChatGroq
-        llm = ChatGroq(
-            model=settings.groq_voice_model,
-            api_key=settings.groq_api_key,
-            temperature=0.3,
-        )
-        # Keep tool count low — too many tools causes malformed tool calls on Groq
-        voice_tools = TRANSACTION_TOOLS + INSIGHTS_TOOLS + SAVINGS_GOAL_TOOLS
-        _groq_voice_agent = create_react_agent(llm, voice_tools, prompt=VOICE_SYSTEM_PROMPT)
-    return _groq_voice_agent
-
 
 def _build_agent(model: str, checkpointer=None):
     llm = ChatOllama(model=model, base_url=settings.ollama_base_url)
