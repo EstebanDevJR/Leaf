@@ -8,22 +8,29 @@ from langchain_core.tools import tool
 from backend.config import settings
 
 # Single-pass prompt: one call to a vision-capable model does OCR + JSON extraction
-_PROMPT = """Analiza esta imagen de recibo o factura colombiana.
-Devuelve SOLO JSON válido, sin texto adicional:
+_PROMPT = """Lee el texto de esta imagen de recibo o factura colombiana con mucho cuidado.
+
+Primero identifica: nombre del comercio, fecha, cada producto/servicio con su valor, y el total a pagar.
+
+Luego responde SOLO con este JSON (sin texto antes ni después):
 {
-  "merchant": "nombre del comercio o empresa, o null",
-  "date": "fecha en DD/MM/YYYY o null",
-  "items": [{"name": "concepto o producto", "amount": monto_numerico}],
-  "total": monto_total_numerico,
+  "merchant": "nombre exacto del comercio tal como aparece en el recibo, o null",
+  "date": "fecha en formato DD/MM/YYYY o null",
+  "items": [{"name": "nombre del producto o servicio", "amount": valor_numerico_entero}],
+  "total": valor_total_entero_sin_puntos_ni_signos,
   "category": "comida|transporte|vivienda|salud|entretenimiento|ropa|servicios|otro"
 }
 
-Reglas:
+Reglas de categoría:
+- Restaurante, supermercado, tienda de alimentos → "comida"
 - Gas, agua, electricidad, internet, telefonía → "servicios"
 - Arriendo, administración → "vivienda"
-- El total es el "VALOR A PAGAR" o "TOTAL A PAGAR" como entero en pesos (sin $ ni puntos)
-- Empresas de gas: Surtigas, Gas Natural, Vanti, Alcanos, Gases del Caribe, Metrogas
-- Los montos son enteros (ej: 85000, no "85.000")"""
+- Taxi, bus, gasolina, peaje → "transporte"
+
+Reglas de montos:
+- El total es el valor etiquetado "TOTAL", "VALOR A PAGAR" o "TOTAL A PAGAR"
+- Escribe los montos como enteros sin puntos ni comas (85000 no "85.000")
+- Si no puedes leer un valor con certeza, usa null"""
 
 
 def _to_float(value: object, default: float = 0.0) -> float:
@@ -74,8 +81,7 @@ def _extract_sync(image_b64: str) -> dict:
     response = ollama.chat(
         model=settings.ollama_model,
         messages=[{"role": "user", "content": _PROMPT, "images": [image_b64]}],
-        format="json",
-        options={"temperature": 0, "num_predict": 256},
+        options={"temperature": 0, "num_predict": 512},
     )
     return _normalize(_parse_json(response["message"]["content"]))
 
