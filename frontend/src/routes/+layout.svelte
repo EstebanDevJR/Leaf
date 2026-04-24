@@ -2,9 +2,9 @@
 </script>
 
 <svelte:head>
-  <title>Leaf 🌿</title>
+  <title>Leaf</title>
   <link
-    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,700&family=JetBrains+Mono:wght@300;400;500&display=swap"
     rel="stylesheet"
   />
 </svelte:head>
@@ -19,19 +19,26 @@
   }
 
   :global(:root) {
-    --bg: #0a0f0a;
-    --surface: #111811;
-    --surface2: #162016;
-    --border: #1e2e1e;
-    --green: #4ade80;
-    --green-dim: #22543d;
-    --green-glow: rgba(74, 222, 128, 0.08);
+    --bg:          #111311;
+    --surface:     #181c18;
+    --surface2:    #1d221d;
+    --surface3:    #232923;
+    --border:      #232923;
+    --border-light: #2d342d;
+
+    --green:       #5aaa5a;
+    --green-bright:#4ade80;
+    --green-dim:   #2d4a2d;
+    --green-glow:  rgba(90, 170, 90, 0.14);
+    --green-nav:   rgba(90, 170, 90, 0.16);
+
     --amber: #fbbf24;
-    --blue: #60a5fa;
-    --red: #f87171;
-    --text: #d1fae5;
-    --text-dim: #6b7280;
-    --text-mid: #9ca3af;
+    --blue:  #60a5fa;
+    --red:   #f87171;
+
+    --text:     #f0f0ef;
+    --text-mid: #9aaa9a;
+    --text-dim: #5a6a5a;
 
     /* Category palette */
     --cat-comida:          #4ade80;
@@ -47,38 +54,20 @@
   :global(body) {
     background: var(--bg);
     color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Inter', 'JetBrains Mono', monospace;
     font-size: 13px;
-    line-height: 1.7;
+    line-height: 1.6;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Custom scrollbar — all scroll areas */
   :global(::-webkit-scrollbar) { width: 4px; height: 4px; }
   :global(::-webkit-scrollbar-track) { background: transparent; }
-  :global(::-webkit-scrollbar-thumb) {
-    background: var(--border);
-    border-radius: 4px;
-  }
+  :global(::-webkit-scrollbar-thumb) { background: var(--border); border-radius: 4px; }
   :global(::-webkit-scrollbar-thumb:hover) { background: var(--green-dim); }
   :global(*) { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 
-  :global(body::before) {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(74, 222, 128, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(74, 222, 128, 0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
   :global(#svelte) {
-    position: relative;
-    z-index: 1;
     height: 100vh;
     display: flex;
     flex-direction: column;

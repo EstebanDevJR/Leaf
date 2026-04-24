@@ -49,7 +49,7 @@ def get_cdt_comparison(monto: float = 0, plazo: int = 12) -> dict:
     RETENCION = 0.07  # 7% retención en la fuente sobre rendimientos CDT
     INFLACION = 0.055  # 5.5% proyectado 2026
 
-    rates, is_live = _get_rates()
+    rates, is_live, source_date = _get_rates()
     valid_terms = [3, 6, 12, 24]
     term = min(valid_terms, key=lambda t: abs(t - plazo))
 
@@ -81,6 +81,7 @@ def get_cdt_comparison(monto: float = 0, plazo: int = 12) -> dict:
 
     return {
         "is_live": is_live,
+        "source_date": source_date,
         "plazo_meses": term,
         "monto": monto,
         "retencion_pct": RETENCION * 100,
