@@ -198,7 +198,7 @@ def get_emergency_fund(session: Session = Depends(get_session)) -> dict[str, Any
 def get_investments() -> dict[str, Any]:
     """Tasas CDT actualizadas de bancos colombianos."""
     from backend.tools.cdt_live_rates import _get_rates
-    rates, is_live = _get_rates()
+    rates, is_live, source_date = _get_rates()
 
     banks = []
     for bank, terms in rates.items():
@@ -214,6 +214,7 @@ def get_investments() -> dict[str, Any]:
 
     return {
         "is_live": is_live,
+        "source_date": source_date,
         "banks": banks,
         "inflation_rate": 5.5,
         "banrep_rate": 9.75,

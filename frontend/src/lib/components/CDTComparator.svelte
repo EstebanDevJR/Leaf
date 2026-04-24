@@ -9,6 +9,7 @@
   let loading = $state(false);
   let result = $state<null | {
     is_live: boolean;
+    source_date: string;
     plazo_meses: number;
     monto: number;
     retencion_pct: number;
@@ -110,7 +111,10 @@
 
     <!-- Info bar -->
     <div class="info-bar">
-      <span>Tasas {result.is_live ? 'actualizadas' : 'de referencia'}</span>
+      <span>
+        {result.is_live ? '🟢 Fuente: SFC · ' : '🟡 Referencia · '}
+        {result.source_date}
+      </span>
       <span>Retención: {result.retencion_pct}% · Inflación: {result.inflacion_pct}%</span>
     </div>
 
@@ -142,8 +146,8 @@
     </div>
 
     <p class="disclaimer">
-      ⚠️ Tasas de referencia educativas. Retención en la fuente sobre rendimientos: 7%.
-      Verifica directamente con cada entidad antes de invertir. No es asesoría financiera.
+      ⚠️ Tasas reportadas por cada entidad a la Superfinanciera (SFC). Retención en la fuente: 7%.
+      Las tasas varían según monto y condiciones. Verifica directamente con cada banco.
     </p>
   {/if}
 </div>
