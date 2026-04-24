@@ -394,6 +394,88 @@ export async function getInvestments(): Promise<InvestmentsData> {
   return res.json();
 }
 
+export interface HealthReport {
+  month: string;
+  month_label: string;
+  score: number;
+  strengths: string[];
+  improvements: string[];
+  benchmark: string;
+  next_month_goal: string;
+  details: {
+    savings_rate: number;
+    coverage_months: number;
+    active_goals: number;
+    budget_violations: number;
+    month_income: number;
+    month_expenses: number;
+  };
+}
+
+export interface TakeHome {
+  sueldo_bruto: number;
+  descuentos: {
+    salud: number;
+    pension: number;
+    solidaridad: number;
+    retencion_fuente: number;
+    total: number;
+  };
+  sueldo_neto: number;
+  pct_descuento: number;
+  distribucion: {
+    necesidades_50pct: number;
+    gustos_30pct: number;
+    ahorro_20pct: number;
+  };
+  proyecciones: {
+    ahorro_mensual: number;
+    ahorro_anual: number;
+    cdt_rendimiento_1a: number;
+    total_con_cdt: number;
+  };
+}
+
+export interface Subscription {
+  name: string;
+  category: string;
+  amount_per_payment: number;
+  monthly_cost: number;
+  frequency: string;
+  occurrences: number;
+  last_payment: string;
+  days_since_last: number;
+  potentially_unused: boolean;
+}
+
+export interface SubscriptionsData {
+  subscriptions: Subscription[];
+  total_monthly: number;
+  total_annual: number;
+  potentially_unused: Subscription[];
+  savings_potential_monthly: number;
+  savings_potential_annual: number;
+  count: number;
+}
+
+export async function getHealthReport(): Promise<HealthReport> {
+  const res = await fetch(`${API_URL}/health/report`);
+  if (!res.ok) throw new Error('Error al generar informe de salud');
+  return res.json();
+}
+
+export async function getTakeHome(sueldoBruto: number): Promise<TakeHome> {
+  const res = await fetch(`${API_URL}/health/take-home?sueldo_bruto=${sueldoBruto}`);
+  if (!res.ok) throw new Error('Error al calcular sueldo neto');
+  return res.json();
+}
+
+export async function getSubscriptions(days = 90): Promise<SubscriptionsData> {
+  const res = await fetch(`${API_URL}/subscriptions/?days=${days}`);
+  if (!res.ok) throw new Error('Error al cargar suscripciones');
+  return res.json();
+}
+
 export async function simulateWhatIf(params: {
   scenario: string;
   change_pct?: number;
@@ -443,6 +525,8 @@ export const TOOL_LABELS: Record<string, string> = {
   list_savings_goals:    'listando metas',
   update_savings_goal:   'actualizando meta',
   whatif_simulator:      'simulando escenario',
-  formulario_210:        'generando Formulario 210',
-  import_dian_factura:   'importando factura DIAN',
+  formulario_210:              'generando Formulario 210',
+  import_dian_factura:         'importando factura DIAN',
+  calculate_take_home_pay:          'calculando sueldo neto',
+  generate_financial_health_report: 'generando informe de salud',
 };

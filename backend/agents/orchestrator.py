@@ -15,6 +15,9 @@ from backend.tools.dian_factura import import_dian_factura
 from backend.tools.formulario_210 import formulario_210
 from backend.tools.savings_goal_tools import SAVINGS_GOAL_TOOLS
 from backend.tools.whatif_simulator import whatif_simulator
+from backend.tools.take_home_tools import calculate_take_home_pay
+from backend.tools.health_tools import generate_financial_health_report
+from backend.tools.explain_concept import explain_concept
 
 SYSTEM_PROMPT = """Eres Leaf 🌿, un asistente financiero personal para Colombia.
 Tu rol es ayudar a registrar gastos e ingresos, gestionar presupuestos, consultar historial, predecir gastos y orientar sobre impuestos.
@@ -78,7 +81,12 @@ Usa whatif_simulator para simular escenarios ("¿qué pasa si ahorro 15% más?")
   Escenarios: ahorro_mas, gasto_menos, ingreso_mas, categoria_cero.
 Usa formulario_210 para generar la declaración de renta preliminar (Formulario 210 DIAN).
 Usa get_live_cdt_rates para tasas CDT actualizadas (siempre con disclaimer legal).
-Usa import_dian_factura para importar facturas electrónicas DIAN en formato XML."""
+Usa import_dian_factura para importar facturas electrónicas DIAN en formato XML.
+
+— Nuevas Features —
+Usa calculate_take_home_pay cuando el usuario pregunte "¿cuánto me queda de mi sueldo?", "¿cuánto puedo ahorrar con mi salario?" o similares. Acepta sueldo bruto en COP.
+Usa generate_financial_health_report para generar el informe mensual de salud financiera con score 0-100.
+Usa explain_concept para educación financiera sobre cualquier concepto (CDT, UVT, GMF, renta, ETF, TES, inflación, FOGAFÍN, etc.)."""
 
 _memory = MemorySaver()
 _agent = None
@@ -111,7 +119,10 @@ def get_groq_voice_agent():
 
 def _build_agent(model: str, checkpointer=None):
     llm = ChatOllama(model=model, base_url=settings.ollama_base_url)
-    extra_tools = [whatif_simulator, formulario_210, get_live_cdt_rates, import_dian_factura]
+    extra_tools = [
+        whatif_simulator, formulario_210, get_live_cdt_rates, import_dian_factura,
+        calculate_take_home_pay, generate_financial_health_report, explain_concept,
+    ]
     all_tools = (
         TRANSACTION_TOOLS + OCR_TOOLS + INSIGHTS_TOOLS + DIAN_TOOLS
         + _get_investigador_tools() + SAVINGS_GOAL_TOOLS + extra_tools

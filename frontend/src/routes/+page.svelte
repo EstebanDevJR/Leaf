@@ -17,6 +17,10 @@
   import CashflowChart from '$lib/components/CashflowChart.svelte';
   import WhatIfSimulator from '$lib/components/WhatIfSimulator.svelte';
   import InvestmentRecommendations from '$lib/components/InvestmentRecommendations.svelte';
+  import CDTComparator from '$lib/components/CDTComparator.svelte';
+  import SubscriptionsList from '$lib/components/SubscriptionsList.svelte';
+  import ConceptExplainer from '$lib/components/ConceptExplainer.svelte';
+  import HealthReport from '$lib/components/HealthReport.svelte';
   import { onMount } from 'svelte';
   import type { PageData } from './$types';
 
@@ -30,7 +34,7 @@
 
   let chatOpen = $state(false);
   let drawerOpen = $state(false);
-  let sidePanel: 'none' | 'goals' | 'import' | 'profiles' | 'whatif' | 'investments' = $state('none');
+  let sidePanel: 'none' | 'goals' | 'import' | 'profiles' | 'whatif' | 'investments' | 'cdt' | 'subscriptions' | 'concepts' | 'health' = $state('none');
   let investigadorEnabled = $state(true);
   let alertsOpen = $state(false);
   let activeNav = $state('dashboard');
@@ -441,6 +445,36 @@
 
       </div>
 
+      <!-- ── Row 5: 5 Ideas Top ── -->
+      <div class="tiles-row tiles-5">
+
+        <button class="tile" on:click={() => { sidePanel = 'health'; activeNav = ''; drawerOpen = false; }}>
+          <span class="tile-icon">🌿</span>
+          <span>Salud financiera</span>
+        </button>
+
+        <button class="tile" on:click={() => { sidePanel = 'cdt'; activeNav = ''; drawerOpen = false; }}>
+          <span class="tile-icon">💎</span>
+          <span>Comparar CDT</span>
+        </button>
+
+        <button class="tile" on:click={() => { sidePanel = 'subscriptions'; activeNav = ''; drawerOpen = false; }}>
+          <span class="tile-icon">🔄</span>
+          <span>Suscripciones</span>
+        </button>
+
+        <button class="tile" on:click={() => { sidePanel = 'concepts'; activeNav = ''; drawerOpen = false; }}>
+          <span class="tile-icon">📚</span>
+          <span>Diccionario</span>
+        </button>
+
+        <button class="tile" on:click={() => { sidePanel = 'whatif'; activeNav = ''; drawerOpen = false; }}>
+          <span class="tile-icon">🔮</span>
+          <span>What-If</span>
+        </button>
+
+      </div>
+
     </div>
   </div>
 
@@ -484,6 +518,14 @@
         <WhatIfSimulator />
       {:else if sidePanel === 'investments'}
         <InvestmentRecommendations />
+      {:else if sidePanel === 'cdt'}
+        <CDTComparator />
+      {:else if sidePanel === 'subscriptions'}
+        <SubscriptionsList />
+      {:else if sidePanel === 'concepts'}
+        <ConceptExplainer />
+      {:else if sidePanel === 'health'}
+        <HealthReport />
       {/if}
     </div>
   {/if}
@@ -918,6 +960,10 @@
     gap: 14px;
   }
 
+  .tiles-5 {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
   .tile {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -1136,13 +1182,15 @@
     .kpi-card:first-child { grid-column: span 2; }
     .mid-row { grid-template-columns: 1fr; }
     .tiles-row { grid-template-columns: 1fr 1fr; }
+    .tiles-5 { grid-template-columns: repeat(3, 1fr); }
     .tile-inv { grid-column: span 2; }
   }
 
   @media (max-width: 600px) {
     .kpi-row { grid-template-columns: 1fr; }
     .kpi-card:first-child { grid-column: auto; }
-    .tiles-row { grid-template-columns: 1fr; }
+    .tiles-row { grid-template-columns: 1fr 1fr; }
+    .tiles-5 { grid-template-columns: repeat(2, 1fr); }
     .tile-inv { grid-column: auto; }
     .dash-header { padding: 14px 16px 10px; }
     .dashboard { padding: 4px 16px 16px; }
