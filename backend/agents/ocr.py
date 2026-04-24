@@ -1,4 +1,4 @@
-"""Agente OCR — herramientas de extracción de recibos via Moondream2."""
+"""Agente OCR — extracción de recibos con el modelo de visión principal."""
 
 from backend.tools.extract_receipt import extract_receipt
 
