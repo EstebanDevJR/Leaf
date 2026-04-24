@@ -260,27 +260,111 @@ GET    /subscriptions/           suscripciones detectadas automáticamente
 GET    /health                   estado del servicio
 ```
 
-## Roadmap
+## Arquitectura del sistema
 
-- [x] Core: orquestador + transacciones + SQLite + FastAPI + SvelteKit
-- [x] OCR de recibos
-- [x] Insights + presupuestos
-- [x] Reportes DIAN
-- [x] Agente Investigador autónomo (10 herramientas, monitoreo en background)
-- [x] Metas de ahorro inteligentes con proyecciones ajustadas por inflación
-- [x] Dashboard visual completo — cashflow, categorías, patrimonio neto
-- [x] Importación masiva CSV (Bancolombia, Davivienda, Nequi, Nubank, Daviplata)
-- [x] Exportación profesional PDF + Excel + Modo Contador
-- [x] Formulario 210 — declaración de renta preliminar
-- [x] Simulador de escenarios What-If
-- [x] Telegram bot — texto + voz + notificaciones push del Investigador + markdown HTML
-- [x] Multi-perfil familiar
-- [x] Importación de facturas electrónicas DIAN (UBL XML)
-- [x] CDT con tasas en vivo desde Superfinanciera
-- [x] Streaming token a token en el chat
-- [x] Memoria de conversación por sesión (LangGraph MemorySaver)
-- [x] Markdown renderizado en el chat web y en Telegram
-- [x] Voz en Telegram: STT Groq Whisper + gTTS, responde con nota de voz
+### Componentes y flujo de datos
+
+```mermaid
+flowchart TB
+    subgraph UI["Interfaces de usuario"]
+        WEB["🌐 Chat Web\nSvelteKit · SSE streaming\nMarkdown · Sesiones"]
+        TGT["💬 Telegram\nTexto · Markdown HTML"]
+        TGV["🎤 Telegram\nNota de voz"]
+    end
+
+    subgraph BACK["Backend — FastAPI"]
+        API["POST /chat/stream\nSSE token a token"]
+        BOT["Telegram Bot\nhilo daemon\npython-telegram-bot v21"]
+        STT["Groq Whisper STT\n~0.3 s"]
+        TTS["Google TTS — gTTS\n~0.3 s · sin API key"]
+    end
+
+    subgraph ORCH["Orquestador — LangGraph ReAct"]
+        AGT["Agente principal\nReAct loop"]
+        MEM[("MemorySaver\nsesión por thread_id")]
+        AGT <--> MEM
+    end
+
+    subgraph AGENTS["Agentes especializados"]
+        A1["📊 Transacciones\nCRUD · historial"]
+        A2["💡 Insights\npresupuestos · predicciones"]
+        A3["🏛️ DIAN\nrenta · retención · GMF"]
+        A4["📷 OCR\nextracción de recibos"]
+        A5["🎯 Metas de ahorro\nproyecciones · inflación"]
+        A6["🔍 Investigador\nautónomo · background"]
+    end
+
+    subgraph INFRA["Infraestructura"]
+        OLL["🖥️ Ollama local\ngemma4:e4b"]
+        DB[("🗄️ SQLite\nleaf.db")]
+        GROQ["☁️ Groq API\ngratis · sin tarjeta"]
+    end
+
+    WEB -- "mensaje + session_id" --> API
+    TGT -- "texto" --> BOT
+    TGV -- "OGG Opus" --> BOT
+    BOT --> STT
+    STT <--> GROQ
+    API --> AGT
+    BOT --> AGT
+    AGT <--> OLL
+    AGT --> A1 & A2 & A3 & A4 & A5 & A6
+    A1 & A2 & A3 & A5 & A6 <--> DB
+    AGT -- "tokens SSE" --> API -- "stream" --> WEB
+    AGT --> TTS -- "MP3" --> BOT
+    BOT -- "texto HTML" --> TGT
+    BOT -- "nota de voz MP3" --> TGV
+```
+
+### Flujo del Agente Investigador
+
+```mermaid
+flowchart LR
+    subgraph TRIGGERS["Disparadores"]
+        T1["⏰ 08:00 diario\ncron scheduler"]
+        T2["💸 Nueva transacción\nhook automático"]
+        T3["👤 Manual\nPOST /investigador/run"]
+    end
+
+    subgraph ANALYSIS["Análisis"]
+        direction TB
+        AN["🔍 analyze_patterns\ndetect_anomaly\nfind_subscriptions\nfind_idle_money\nemergency_fund_status"]
+    end
+
+    subgraph OUTPUT["Salida"]
+        ALT["🔔 Alerta en app"]
+        TGN["📲 Notificación Telegram\ntexto o nota de voz"]
+    end
+
+    T1 & T2 & T3 --> AN
+    AN -- "hallazgo relevante" --> ALT & TGN
+```
+
+### Flujo de voz en Telegram
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario
+    participant TG as Telegram
+    participant BOT as Bot (daemon thread)
+    participant GROQ as Groq Whisper
+    participant AGT as Agente LangGraph
+    participant OLL as Ollama local
+    participant TTS as gTTS
+
+    U->>TG: 🎤 nota de voz (OGG)
+    TG->>BOT: archivo OGG
+    BOT->>GROQ: transcribir audio
+    GROQ-->>BOT: texto (~0.3 s)
+    BOT->>AGT: invoke(transcript, thread_id)
+    AGT->>OLL: razonamiento + herramientas
+    OLL-->>AGT: respuesta
+    AGT-->>BOT: texto final
+    BOT->>TTS: sintetizar (sin markdown)
+    TTS-->>BOT: MP3 (~0.3 s)
+    BOT->>TG: 🔊 nota de voz MP3
+    TG->>U: escucha la respuesta
+```
 
 ---
 
