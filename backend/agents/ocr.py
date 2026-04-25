@@ -1,4 +1,4 @@
-"""Agente OCR — extracción de recibos con el modelo de visión principal."""
+"""Agente OCR — moondream lee el texto, gemma4 estructura el JSON."""
 
 from backend.tools.extract_receipt import extract_receipt
 

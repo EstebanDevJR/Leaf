@@ -7,30 +7,28 @@ from langchain_core.tools import tool
 
 from backend.config import settings
 
-# Single-pass prompt: one call to a vision-capable model does OCR + JSON extraction
-_PROMPT = """Lee el texto de esta imagen de recibo o factura colombiana con mucho cuidado.
+_VISION_MODEL = "moondream:latest"
 
-Primero identifica: nombre del comercio, fecha, cada producto/servicio con su valor, y el total a pagar.
+_READ_PROMPT = "Lee y transcribe todo el texto visible en esta imagen de recibo o factura. Incluye comercio, productos, precios y total a pagar."
 
-Luego responde SOLO con este JSON (sin texto antes ni después):
-{
-  "merchant": "nombre exacto del comercio tal como aparece en el recibo, o null",
-  "date": "fecha en formato DD/MM/YYYY o null",
-  "items": [{"name": "nombre del producto o servicio", "amount": valor_numerico_entero}],
-  "total": valor_total_entero_sin_puntos_ni_signos,
+_PARSE_PROMPT = """Del siguiente texto de un recibo colombiano extrae la información y devuelve SOLO JSON válido, sin texto adicional:
+
+TEXTO:
+{text}
+
+Formato esperado:
+{{
+  "merchant": "nombre del comercio o null",
+  "date": "DD/MM/YYYY o null",
+  "items": [{{"name": "producto o servicio", "amount": monto_entero}}],
+  "total": monto_total_entero,
   "category": "comida|transporte|vivienda|salud|entretenimiento|ropa|servicios|otro"
-}
+}}
 
-Reglas de categoría:
-- Restaurante, supermercado, tienda de alimentos → "comida"
-- Gas, agua, electricidad, internet, telefonía → "servicios"
-- Arriendo, administración → "vivienda"
-- Taxi, bus, gasolina, peaje → "transporte"
-
-Reglas de montos:
-- El total es el valor etiquetado "TOTAL", "VALOR A PAGAR" o "TOTAL A PAGAR"
-- Escribe los montos como enteros sin puntos ni comas (85000 no "85.000")
-- Si no puedes leer un valor con certeza, usa null"""
+Reglas:
+- Montos como enteros sin puntos ni comas (85000 no "85.000")
+- Restaurante/supermercado → comida | Gas/agua/luz/internet → servicios | Arriendo → vivienda | Taxi/bus/gasolina → transporte
+- Si un campo no aparece en el texto usa null"""
 
 
 def _to_float(value: object, default: float = 0.0) -> float:
@@ -77,16 +75,25 @@ def _normalize(data: dict) -> dict:
 
 
 def _extract_sync(image_b64: str) -> dict:
-    """Single Ollama call: main model does vision + JSON extraction."""
-    response = ollama.chat(
+    # Paso 1: Moondream lee el texto de la imagen
+    vision = ollama.chat(
+        model=_VISION_MODEL,
+        messages=[{"role": "user", "content": _READ_PROMPT, "images": [image_b64]}],
+        options={"num_predict": 512},
+    )
+    raw_text = vision["message"]["content"].strip()
+
+    if not raw_text:
+        return _normalize({})
+
+    # Paso 2: gemma4 estructura el texto en JSON
+    parse = ollama.chat(
         model=settings.ollama_model,
-        messages=[{"role": "user", "content": _PROMPT, "images": [image_b64]}],
+        messages=[{"role": "user", "content": _PARSE_PROMPT.format(text=raw_text)}],
         options={"temperature": 0, "num_predict": 512},
     )
-    return _normalize(_parse_json(response["message"]["content"]))
+    return _normalize(_parse_json(parse["message"]["content"]))
 
-
-# ── Public API ────────────────────────────────────────────────────────────────
 
 @tool
 def extract_receipt(image_base64: str) -> str:
@@ -100,4 +107,4 @@ def extract_receipt(image_base64: str) -> str:
 
 async def extract_receipt_from_image(image_b64: str) -> dict:
     """Async wrapper for FastAPI endpoints."""
-    return await asyncio.wait_for(asyncio.to_thread(_extract_sync, image_b64), timeout=60)
+    return await asyncio.wait_for(asyncio.to_thread(_extract_sync, image_b64), timeout=120)
