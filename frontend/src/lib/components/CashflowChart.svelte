@@ -37,27 +37,27 @@
     const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
     const gradientGreen = ctx.createLinearGradient(0, 0, 0, 240);
-    gradientGreen.addColorStop(0, 'rgba(74, 222, 128, 0.28)');
-    gradientGreen.addColorStop(0.65, 'rgba(74, 222, 128, 0.05)');
-    gradientGreen.addColorStop(1, 'rgba(74, 222, 128, 0.00)');
+    gradientGreen.addColorStop(0, 'rgba(74, 124, 89, 0.22)');
+    gradientGreen.addColorStop(0.6, 'rgba(74, 124, 89, 0.05)');
+    gradientGreen.addColorStop(1, 'rgba(74, 124, 89, 0.00)');
 
-    const gradientBlue = ctx.createLinearGradient(0, 0, 0, 240);
-    gradientBlue.addColorStop(0, 'rgba(96, 165, 250, 0.22)');
-    gradientBlue.addColorStop(1, 'rgba(96, 165, 250, 0.00)');
+    const gradientAmber = ctx.createLinearGradient(0, 0, 0, 240);
+    gradientAmber.addColorStop(0, 'rgba(184, 137, 46, 0.20)');
+    gradientAmber.addColorStop(1, 'rgba(184, 137, 46, 0.00)');
 
     const datasets: import('chart.js').ChartDataset<'line'>[] = [
       {
         label: 'Gastos',
         data: data.map(d => d.expenses),
-        borderColor: '#4ade80',
+        borderColor: '#4a7c59',
         borderWidth: 2.5,
         backgroundColor: gradientGreen,
         fill: true,
-        tension: 0.42,
+        tension: 0.44,
         pointRadius: data.length > 6 ? 3 : 5,
         pointHoverRadius: 7,
-        pointBackgroundColor: '#4ade80',
-        pointBorderColor: '#141714',
+        pointBackgroundColor: '#4a7c59',
+        pointBorderColor: 'rgba(255,255,255,0.9)',
         pointBorderWidth: 2,
       },
     ];
@@ -66,25 +66,22 @@
       datasets.push({
         label: 'Ingresos',
         data: data.map(d => d.income),
-        borderColor: '#60a5fa',
+        borderColor: '#b8892e',
         borderWidth: 2,
-        backgroundColor: gradientBlue,
+        backgroundColor: gradientAmber,
         fill: true,
-        tension: 0.42,
+        tension: 0.44,
         pointRadius: data.length > 6 ? 3 : 5,
         pointHoverRadius: 7,
-        pointBackgroundColor: '#60a5fa',
-        pointBorderColor: '#141714',
+        pointBackgroundColor: '#b8892e',
+        pointBorderColor: 'rgba(255,255,255,0.9)',
         pointBorderWidth: 2,
       });
     }
 
     chart = new Chart(canvas, {
       type: 'line',
-      data: {
-        labels: data.map(d => d.label),
-        datasets,
-      },
+      data: { labels: data.map(d => d.label), datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -93,20 +90,20 @@
           legend: {
             display: showIncome,
             labels: {
-              color: '#5a6a5a',
+              color: '#6a8870',
               font: { size: 11, family: 'Inter' },
               boxWidth: 10,
-              padding: 10,
+              padding: 12,
             },
           },
           tooltip: {
-            backgroundColor: '#1d221d',
-            borderColor: '#2d342d',
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: 'rgba(74,124,89,0.20)',
             borderWidth: 1,
-            titleColor: '#5a6a5a',
-            bodyColor: '#f0f0ef',
+            titleColor: '#6a8870',
+            bodyColor: '#162219',
             padding: 10,
-            cornerRadius: 8,
+            cornerRadius: 10,
             callbacks: {
               label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
                 ` ${ctx.dataset.label}: ${formatCOP(ctx.parsed.y ?? 0)}`,
@@ -115,13 +112,13 @@
         },
         scales: {
           x: {
-            ticks: { color: '#5a6a5a', font: { size: 11, family: 'Inter' } },
-            grid: { color: 'rgba(255,255,255,0.03)' },
+            ticks: { color: '#6a8870', font: { size: 11, family: 'Inter' } },
+            grid: { color: 'rgba(74,124,89,0.06)' },
             border: { display: false },
           },
           y: {
             ticks: {
-              color: '#5a6a5a',
+              color: '#6a8870',
               font: { size: 11, family: 'Inter' },
               callback: (v: number | string) => {
                 const n = Number(v);
@@ -131,7 +128,7 @@
               },
               maxTicksLimit: 5,
             },
-            grid: { color: 'rgba(255,255,255,0.03)' },
+            grid: { color: 'rgba(74,124,89,0.06)' },
             border: { display: false },
           },
         },
@@ -147,10 +144,6 @@
 </div>
 
 <style>
-  .wrap {
-    width: 100%;
-    height: 100%;
-    min-height: 160px;
-  }
+  .wrap { width: 100%; height: 100%; min-height: 160px; }
   canvas { display: block; }
 </style>
