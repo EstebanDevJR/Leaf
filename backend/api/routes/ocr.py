@@ -3,7 +3,7 @@ import base64
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from backend.config import settings
-from backend.tools.extract_receipt import extract_receipt_from_image
+from backend.tools.extract_receipt import extract_receipt_from_image, debug_extract
 
 router = APIRouter()
 
@@ -35,3 +35,14 @@ async def extract_receipt_endpoint(file: UploadFile = File(...)) -> dict:
         ) from exc
 
     return data
+
+
+@router.post("/debug")
+async def debug_receipt_endpoint(file: UploadFile = File(...)) -> dict:
+    """Muestra los pasos intermedios: texto Moondream y JSON crudo de gemma4."""
+    contents = await file.read()
+    image_b64 = base64.b64encode(contents).decode()
+    try:
+        return await debug_extract(image_b64)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

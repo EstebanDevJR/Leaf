@@ -74,7 +74,8 @@ def _normalize(data: dict) -> dict:
     return data
 
 
-def _extract_sync(image_b64: str) -> dict:
+def _extract_sync(image_b64: str) -> tuple[str, str, dict]:
+    """Retorna (texto_moondream, json_crudo_gemma4, resultado_normalizado)."""
     # Paso 1: Moondream lee el texto de la imagen
     vision = ollama.chat(
         model=_VISION_MODEL,
@@ -84,7 +85,7 @@ def _extract_sync(image_b64: str) -> dict:
     raw_text = vision["message"]["content"].strip()
 
     if not raw_text:
-        return _normalize({})
+        return raw_text, "", _normalize({})
 
     # Paso 2: gemma4 estructura el texto en JSON
     parse = ollama.chat(
@@ -92,7 +93,8 @@ def _extract_sync(image_b64: str) -> dict:
         messages=[{"role": "user", "content": _PARSE_PROMPT.format(text=raw_text)}],
         options={"temperature": 0, "num_predict": 512},
     )
-    return _normalize(_parse_json(parse["message"]["content"]))
+    raw_json = parse["message"]["content"]
+    return raw_text, raw_json, _normalize(_parse_json(raw_json))
 
 
 @tool
@@ -102,9 +104,23 @@ def extract_receipt(image_base64: str) -> str:
     Args:
         image_base64: Imagen del recibo codificada en base64.
     """
-    return json.dumps(_extract_sync(image_base64), ensure_ascii=False)
+    _, _, result = _extract_sync(image_base64)
+    return json.dumps(result, ensure_ascii=False)
 
 
 async def extract_receipt_from_image(image_b64: str) -> dict:
     """Async wrapper for FastAPI endpoints."""
-    return await asyncio.wait_for(asyncio.to_thread(_extract_sync, image_b64), timeout=120)
+    _, _, result = await asyncio.wait_for(asyncio.to_thread(_extract_sync, image_b64), timeout=120)
+    return result
+
+
+async def debug_extract(image_b64: str) -> dict:
+    """Retorna los pasos intermedios para diagnóstico."""
+    raw_text, raw_json, result = await asyncio.wait_for(
+        asyncio.to_thread(_extract_sync, image_b64), timeout=120
+    )
+    return {
+        "paso1_moondream": raw_text,
+        "paso2_gemma4_raw": raw_json,
+        "resultado_final": result,
+    }
