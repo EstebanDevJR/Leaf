@@ -1,59 +1,29 @@
 import asyncio
-import base64
-import io
 import json
 import re
 
 import ollama
 from langchain_core.tools import tool
-from PIL import Image, ImageEnhance
 
 from backend.config import settings
 
-_reader = None
+# Prompt simple — gemma4 falla con prompts complejos en modo visión
+_READ_PROMPT = "Read all text visible in this image exactly as it appears. Include all numbers, prices and names."
 
+_PARSE_PROMPT = """Extract merchant, date, total and items from this Colombian receipt text. Return only JSON.
 
-def _get_reader():
-    global _reader
-    if _reader is None:
-        import easyocr
-        _reader = easyocr.Reader(["es", "en"], gpu=False, verbose=False)
-    return _reader
-
-
-def _preprocess(image_b64: str):
-    """Aumenta contraste y nitidez para mejorar la lectura de texto impreso."""
-    import numpy as np
-    raw = base64.b64decode(image_b64)
-    img = Image.open(io.BytesIO(raw)).convert("RGB")
-    w, h = img.size
-    if min(w, h) < 1000:
-        scale = 1000 / min(w, h)
-        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-    img = ImageEnhance.Contrast(img).enhance(1.8)
-    img = ImageEnhance.Sharpness(img).enhance(2.0)
-    return np.array(img)
-
-
-_PARSE_PROMPT = """Del siguiente texto extraído de un recibo colombiano, extrae la información y devuelve SOLO JSON válido:
-
-TEXTO DEL RECIBO:
 {text}
 
-JSON esperado:
+JSON format:
 {{
-  "merchant": "nombre del comercio o null",
-  "date": "DD/MM/YYYY o null",
-  "items": [{{"name": "producto o servicio", "amount": monto_entero}}],
-  "total": monto_total_entero,
+  "merchant": "store name or null",
+  "date": "DD/MM/YYYY or null",
+  "items": [{{"name": "item", "amount": integer}}],
+  "total": integer_no_dots,
   "category": "comida|transporte|vivienda|salud|entretenimiento|ropa|servicios|otro"
 }}
 
-Reglas:
-- Montos como enteros sin puntos ni comas (85000 no "85.000")
-- El total está etiquetado TOTAL, VALOR A PAGAR o TOTAL A PAGAR
-- Categorías: restaurante/supermercado→comida | gas/agua/luz/internet/telefonía→servicios | arriendo→vivienda | taxi/bus/gasolina→transporte
-- Si un campo no aparece usa null"""
+Category rules: restaurant/supermarket=comida, gas/water/electricity/internet=servicios, rent=vivienda, taxi/bus/fuel=transporte."""
 
 
 def _to_float(value: object, default: float = 0.0) -> float:
@@ -100,21 +70,26 @@ def _normalize(data: dict) -> dict:
 
 
 def _extract_sync(image_b64: str) -> tuple[str, str, dict]:
-    # Paso 1: EasyOCR lee el texto de la imagen (determinístico, no LLM)
-    img_array = _preprocess(image_b64)
-    results = _get_reader().readtext(img_array, detail=0, paragraph=True)
-    raw_text = "\n".join(results).strip()
+    # Paso 1: gemma4 lee el texto de la imagen con prompt simple
+    # IMPORTANTE: no setear temperature — gemma4:e4b falla con temperature explícito
+    r1 = ollama.chat(
+        model=settings.ollama_vision_model,
+        messages=[{"role": "user", "content": _READ_PROMPT, "images": [image_b64]}],
+        options={"num_predict": 512},
+    )
+    raw_text = r1["message"]["content"].strip()
 
     if not raw_text:
         return raw_text, "", _normalize({})
 
-    # Paso 2: gemma4 estructura el texto en JSON (tarea de texto puro)
-    response = ollama.chat(
+    # Paso 2: gemma4 estructura el texto en JSON (sin imagen, sin temperature)
+    # num_predict >= 512 es necesario — valores menores devuelven respuesta vacía
+    r2 = ollama.chat(
         model=settings.ollama_model,
         messages=[{"role": "user", "content": _PARSE_PROMPT.format(text=raw_text)}],
-        options={"temperature": 0, "num_predict": 512, "num_ctx": 2048},
+        options={"num_predict": 1024},
     )
-    raw_json = response["message"]["content"]
+    raw_json = r2["message"]["content"]
     return raw_text, raw_json, _normalize(_parse_json(raw_json))
 
 
@@ -141,7 +116,7 @@ async def debug_extract(image_b64: str) -> dict:
         asyncio.to_thread(_extract_sync, image_b64), timeout=120
     )
     return {
-        "paso1_easyocr": raw_text,
-        "paso2_gemma4_raw": raw_json,
+        "paso1_texto_leido": raw_text,
+        "paso2_json_crudo": raw_json,
         "resultado_final": result,
     }
