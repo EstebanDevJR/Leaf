@@ -57,6 +57,7 @@ Metas: usa create/list/update_savings_goal. Simulador: escenarios ahorro_mas, ga
 
 _memory = MemorySaver()
 _agents: dict[str, object] = {}
+_session_domains: dict[str, str] = {}
 _llm = None
 
 
@@ -89,8 +90,13 @@ def _tool_map() -> dict[str, list]:
     }
 
 
-def get_agent(message: str = ""):
-    intent = classify_intent(message) if message else "general"
+def get_agent(message: str = "", session_id: str | None = None):
+    if session_id and session_id in _session_domains:
+        intent = _session_domains[session_id]
+    else:
+        intent = classify_intent(message) if message else "general"
+        if session_id:
+            _session_domains[session_id] = intent
     if intent not in _agents:
         tools = _tool_map()[intent]
         _agents[intent] = create_react_agent(

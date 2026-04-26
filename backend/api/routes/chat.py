@@ -26,7 +26,7 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
 
     async def generate():
         try:
-            agent = get_agent(request.message)
+            agent = get_agent(request.message, session_id)
             final_response: str | None = None
 
             yield _sse({"type": "session", "session_id": session_id})
