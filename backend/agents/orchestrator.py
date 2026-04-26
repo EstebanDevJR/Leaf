@@ -57,10 +57,21 @@ Metas: usa create/list/update_savings_goal. Simulador: escenarios ahorro_mas, ga
 
 _memory = MemorySaver()
 _agents: dict[str, object] = {}
+_llm = None
 
 
-def _build_agents(model: str) -> dict[str, object]:
-    llm = ChatOllama(model=model, base_url=settings.ollama_base_url)
+def _get_llm() -> ChatOllama:
+    global _llm
+    if _llm is None:
+        _llm = ChatOllama(
+            model=settings.ollama_model,
+            base_url=settings.ollama_base_url,
+            num_ctx=settings.ollama_num_ctx,
+        )
+    return _llm
+
+
+def _tool_map() -> dict[str, list]:
     inv_tools = _get_investigador_tools()
     all_tools = (
         TRANSACTION_TOOLS + OCR_TOOLS + INSIGHTS_TOOLS + DIAN_TOOLS
@@ -68,7 +79,7 @@ def _build_agents(model: str) -> dict[str, object]:
         + [whatif_simulator, formulario_210, get_live_cdt_rates, import_dian_factura,
            calculate_take_home_pay, generate_financial_health_report, explain_concept]
     )
-    tool_map = {
+    return {
         "transacciones": TRANSACTION_TOOLS + [check_budget],
         "dian":          DIAN_TOOLS + [formulario_210, import_dian_factura],
         "insights":      INSIGHTS_TOOLS + SAVINGS_GOAL_TOOLS + [whatif_simulator, generate_financial_health_report, calculate_take_home_pay],
@@ -76,14 +87,13 @@ def _build_agents(model: str) -> dict[str, object]:
         "ocr":           OCR_TOOLS + TRANSACTION_TOOLS,
         "general":       all_tools,
     }
-    return {
-        domain: create_react_agent(llm, tools, prompt=_PROMPTS[domain], checkpointer=_memory)
-        for domain, tools in tool_map.items()
-    }
 
 
 def get_agent(message: str = ""):
-    global _agents
-    if not _agents:
-        _agents = _build_agents(settings.ollama_model)
-    return _agents[classify_intent(message) if message else "general"]
+    intent = classify_intent(message) if message else "general"
+    if intent not in _agents:
+        tools = _tool_map()[intent]
+        _agents[intent] = create_react_agent(
+            _get_llm(), tools, prompt=_PROMPTS[intent], checkpointer=_memory
+        )
+    return _agents[intent]

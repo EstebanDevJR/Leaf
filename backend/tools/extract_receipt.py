@@ -7,28 +7,17 @@ from langchain_core.tools import tool
 
 from backend.config import settings
 
-_VISION_MODEL = "moondream:latest"
-
-_READ_PROMPT = "Lee y transcribe todo el texto visible en esta imagen de recibo o factura. Incluye comercio, productos, precios y total a pagar."
-
-_PARSE_PROMPT = """Del siguiente texto de un recibo colombiano extrae la información y devuelve SOLO JSON válido, sin texto adicional:
-
-TEXTO:
-{text}
-
-Formato esperado:
-{{
-  "merchant": "nombre del comercio o null",
-  "date": "DD/MM/YYYY o null",
-  "items": [{{"name": "producto o servicio", "amount": monto_entero}}],
-  "total": monto_total_entero,
+_PROMPT = """Look at this receipt image. Extract the information and return ONLY this JSON, no other text:
+{
+  "merchant": "store name as shown, or null",
+  "date": "DD/MM/YYYY or null",
+  "items": [{"name": "item name", "amount": integer_amount}],
+  "total": integer_total,
   "category": "comida|transporte|vivienda|salud|entretenimiento|ropa|servicios|otro"
-}}
+}
 
-Reglas:
-- Montos como enteros sin puntos ni comas (85000 no "85.000")
-- Restaurante/supermercado → comida | Gas/agua/luz/internet → servicios | Arriendo → vivienda | Taxi/bus/gasolina → transporte
-- Si un campo no aparece en el texto usa null"""
+Rules: amounts as plain integers (85000 not "85.000"). Total is labeled TOTAL or VALOR A PAGAR.
+Categories: restaurant/supermarket=comida, gas/water/electricity/internet=servicios, rent=vivienda, taxi/bus/fuel=transporte."""
 
 
 def _to_float(value: object, default: float = 0.0) -> float:
@@ -74,27 +63,14 @@ def _normalize(data: dict) -> dict:
     return data
 
 
-def _extract_sync(image_b64: str) -> tuple[str, str, dict]:
-    """Retorna (texto_moondream, json_crudo_gemma4, resultado_normalizado)."""
-    # Paso 1: Moondream lee el texto de la imagen
-    vision = ollama.chat(
-        model=_VISION_MODEL,
-        messages=[{"role": "user", "content": _READ_PROMPT, "images": [image_b64]}],
-        options={"num_predict": 512},
+def _extract_sync(image_b64: str) -> tuple[str, dict]:
+    response = ollama.chat(
+        model=settings.ollama_vision_model,
+        messages=[{"role": "user", "content": _PROMPT, "images": [image_b64]}],
+        options={"temperature": 0, "num_predict": 512, "num_ctx": 2048},
     )
-    raw_text = vision["message"]["content"].strip()
-
-    if not raw_text:
-        return raw_text, "", _normalize({})
-
-    # Paso 2: gemma4 estructura el texto en JSON
-    parse = ollama.chat(
-        model=settings.ollama_model,
-        messages=[{"role": "user", "content": _PARSE_PROMPT.format(text=raw_text)}],
-        options={"temperature": 0, "num_predict": 512},
-    )
-    raw_json = parse["message"]["content"]
-    return raw_text, raw_json, _normalize(_parse_json(raw_json))
+    raw = response["message"]["content"]
+    return raw, _normalize(_parse_json(raw))
 
 
 @tool
@@ -104,23 +80,17 @@ def extract_receipt(image_base64: str) -> str:
     Args:
         image_base64: Imagen del recibo codificada en base64.
     """
-    _, _, result = _extract_sync(image_base64)
+    _, result = _extract_sync(image_base64)
     return json.dumps(result, ensure_ascii=False)
 
 
 async def extract_receipt_from_image(image_b64: str) -> dict:
     """Async wrapper for FastAPI endpoints."""
-    _, _, result = await asyncio.wait_for(asyncio.to_thread(_extract_sync, image_b64), timeout=120)
+    _, result = await asyncio.wait_for(asyncio.to_thread(_extract_sync, image_b64), timeout=120)
     return result
 
 
 async def debug_extract(image_b64: str) -> dict:
-    """Retorna los pasos intermedios para diagnóstico."""
-    raw_text, raw_json, result = await asyncio.wait_for(
-        asyncio.to_thread(_extract_sync, image_b64), timeout=120
-    )
-    return {
-        "paso1_moondream": raw_text,
-        "paso2_gemma4_raw": raw_json,
-        "resultado_final": result,
-    }
+    """Retorna pasos intermedios para diagnóstico."""
+    raw, result = await asyncio.wait_for(asyncio.to_thread(_extract_sync, image_b64), timeout=120)
+    return {"modelo": settings.ollama_vision_model, "raw_response": raw, "resultado_final": result}

@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "gemma4:e4b"
     ollama_vision_model: str = "gemma4:e4b"
+    ollama_num_ctx: int = 4096
     groq_api_key: str = ""
     groq_voice_model: str = "llama-3.3-70b-versatile"
     telegram_bot_token: str = ""
