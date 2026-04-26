@@ -39,7 +39,7 @@ async def extract_receipt_endpoint(file: UploadFile = File(...)) -> dict:
 
 @router.post("/debug")
 async def debug_receipt_endpoint(file: UploadFile = File(...)) -> dict:
-    """Muestra los pasos intermedios: texto Moondream y JSON crudo de gemma4."""
+    """Muestra el raw response del modelo y el resultado normalizado."""
     contents = await file.read()
     image_b64 = base64.b64encode(contents).decode()
     try:

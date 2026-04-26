@@ -8,21 +8,33 @@ from langchain_core.tools import tool
 
 from backend.config import settings
 
-# Prompt corto — gemma4 falla con prompts largos en modo visión
-_PROMPT = "Read this receipt image and return JSON with merchant, date, items (name + amount as integer), total as integer, and category."
-
-_CATEGORY_MAP = {
-    "utilities": "servicios", "utility": "servicios", "services": "servicios",
-    "food": "comida", "grocery": "comida", "groceries": "comida", "restaurant": "comida",
-    "transport": "transporte", "transportation": "transporte", "travel": "transporte",
-    "housing": "vivienda", "rent": "vivienda",
-    "health": "salud", "healthcare": "salud", "medical": "salud",
-    "entertainment": "entretenimiento",
-    "clothing": "ropa", "clothes": "ropa",
-    "other": "otro",
+_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "merchant": {"type": "string"},
+        "date":     {"type": "string"},
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name":   {"type": "string"},
+                    "amount": {"type": "integer"},
+                },
+                "required": ["name", "amount"],
+            },
+        },
+        "total":    {"type": "integer"},
+        "category": {
+            "type": "string",
+            "enum": ["comida", "transporte", "vivienda", "salud",
+                     "entretenimiento", "ropa", "servicios", "otro"],
+        },
+    },
+    "required": ["merchant", "date", "items", "total", "category"],
 }
 
-_VALID_CATEGORIES = {"comida", "transporte", "vivienda", "salud", "entretenimiento", "ropa", "servicios", "otro"}
+_PROMPT = "Extract merchant, date (DD/MM/YYYY), items with integer amounts, integer total, and category from this receipt."
 
 
 def _normalize_date(value: str | None) -> str | None:
@@ -34,15 +46,6 @@ def _normalize_date(value: str | None) -> str | None:
         except ValueError:
             continue
     return value
-
-
-def _normalize_category(value: str | None) -> str:
-    if not value:
-        return "otro"
-    lower = value.lower().strip()
-    if lower in _VALID_CATEGORIES:
-        return lower
-    return _CATEGORY_MAP.get(lower, "otro")
 
 
 def _to_float(value: object, default: float = 0.0) -> float:
@@ -57,19 +60,6 @@ def _to_float(value: object, default: float = 0.0) -> float:
     return default
 
 
-def _parse_json(raw: str) -> dict:
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group())
-            except json.JSONDecodeError:
-                pass
-    return {}
-
-
 def _normalize(data: dict) -> dict:
     items = data.get("items")
     if not isinstance(items, list):
@@ -79,9 +69,12 @@ def _normalize(data: dict) -> dict:
         for i in items
         if isinstance(i, dict) and i.get("name")
     ]
-    data["category"] = _normalize_category(data.get("category"))
     data["date"] = _normalize_date(data.get("date"))
-    data.setdefault("merchant", None)
+    if not data.get("merchant"):
+        data["merchant"] = None
+    if data.get("category") not in {"comida", "transporte", "vivienda", "salud",
+                                     "entretenimiento", "ropa", "servicios", "otro"}:
+        data["category"] = "otro"
     data["total"] = _to_float(data.get("total"), 0.0)
     if data["total"] == 0.0 and data["items"]:
         data["total"] = sum(i["amount"] for i in data["items"])
@@ -89,14 +82,18 @@ def _normalize(data: dict) -> dict:
 
 
 def _extract_sync(image_b64: str) -> tuple[str, dict]:
-    # Un solo paso — prompt corto, sin temperature, num_predict alto
     response = ollama.chat(
-        model=settings.ollama_vision_model,
+        model=settings.ollama_model,
         messages=[{"role": "user", "content": _PROMPT, "images": [image_b64]}],
+        format=_SCHEMA,
         options={"num_predict": 1024},
     )
     raw = response["message"]["content"]
-    return raw, _normalize(_parse_json(raw))
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        data = {}
+    return raw, _normalize(data)
 
 
 @tool
