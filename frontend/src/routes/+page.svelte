@@ -33,6 +33,9 @@
 
   let drawerOpen = $state(false);
   let chatVisible = $state(true);
+  let sidebarCollapsed = $state(false);
+  let chatExpanded = $state(false);
+  let mobileSidebarOpen = $state(false);
   let sidePanel: 'none' | 'goals' | 'import' | 'profiles' | 'whatif' | 'investments' | 'cdt' | 'subscriptions' | 'concepts' | 'health' = $state('none');
   let investigadorEnabled = $state(true);
   let alertsOpen = $state(false);
@@ -110,6 +113,7 @@
   const monthName = _raw.charAt(0).toUpperCase() + _raw.slice(1);
 
   onMount(async () => {
+    sidebarCollapsed = window.innerWidth <= 1024;
     try {
       const [status, ef] = await Promise.all([
         getInvestigadorStatus().catch(() => ({ enabled: true })),
@@ -161,8 +165,13 @@
 
 <div class="app">
 
+  <!-- Mobile backdrop -->
+  {#if mobileSidebarOpen}
+    <div class="mobile-backdrop" onclick={() => mobileSidebarOpen = false}></div>
+  {/if}
+
   <!-- ═══════════════════════════ SIDEBAR ═══════════════════════════════════ -->
-  <aside class="sidebar">
+  <aside class="sidebar" class:collapsed={sidebarCollapsed} class:mobile-open={mobileSidebarOpen}>
     <div class="sidebar-inner">
 
       <div class="logo">
@@ -206,6 +215,13 @@
 
       <div class="nav-bottom">
         <div class="nav-divider"></div>
+        <button class="sidebar-collapse-btn" onclick={() => sidebarCollapsed = !sidebarCollapsed} title={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"
+            style="transform: rotate({sidebarCollapsed ? '180deg' : '0deg'}); transition: transform 0.25s">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+          {#if !sidebarCollapsed}<span class="nav-label">Colapsar</span>{/if}
+        </button>
         {#each [
           { id: 'import', label: 'Importar / Exportar', panel: 'import' as const, path: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12' },
           { id: 'profiles', label: 'Perfiles', panel: 'profiles' as const, path: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
@@ -232,6 +248,11 @@
     <!-- Header -->
     <header class="dash-header">
       <div class="header-left">
+        <button class="hamburger-btn" onclick={() => mobileSidebarOpen = !mobileSidebarOpen} title="Menú">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         <h1 class="month-title">{monthName}</h1>
         {#if activeAlerts.length > 0}
           <button
@@ -527,7 +548,7 @@
 
       <!-- ═══════════════════ CHAT PANEL (persistent) ════════════════════════ -->
       {#if chatVisible}
-        <div class="chat-col">
+        <div class="chat-col" class:expanded={chatExpanded}>
           <div class="chat-col-header">
             <div class="chat-col-title">
               <div class="chat-leaf-icon">
@@ -538,11 +559,22 @@
               <span>Leaf IA</span>
               <span class="chat-online-dot"></span>
             </div>
-            <button class="chat-close-btn" onclick={() => chatVisible = false} title="Ocultar chat">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14">
-                <path d="M18 6 6 18M6 6l12 12"/>
-              </svg>
-            </button>
+            <div class="chat-header-actions">
+              <button class="chat-action-btn" onclick={() => chatExpanded = !chatExpanded} title={chatExpanded ? 'Reducir chat' : 'Ampliar chat'}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13">
+                  {#if chatExpanded}
+                    <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/>
+                  {:else}
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
+                  {/if}
+                </svg>
+              </button>
+              <button class="chat-close-btn" onclick={() => chatVisible = false} title="Ocultar chat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14">
+                  <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="chat-col-body">
             <Chat on:sent={refresh} />
@@ -616,7 +648,34 @@
     border-right: 1px solid rgba(255,255,255,0.55);
     box-shadow: 2px 0 20px rgba(52,100,68,0.08);
     z-index: 10;
+    transition: width 0.25s ease;
+    overflow: hidden;
   }
+
+  .sidebar.collapsed {
+    width: 64px;
+  }
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .logo-text { display: none; }
+  .sidebar.collapsed .logo { justify-content: center; padding: 4px 0 20px; }
+  .sidebar.collapsed .nav-item { justify-content: center; padding: 10px 0; }
+  .sidebar.collapsed .sidebar-collapse-btn { justify-content: center; }
+
+  .sidebar-collapse-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .sidebar-collapse-btn:hover { background: rgba(74,124,89,0.1); color: var(--green-dark); }
 
   .sidebar-inner {
     display: flex;
@@ -1234,6 +1293,7 @@
   .chat-col {
     width: 360px;
     flex-shrink: 0;
+    transition: width 0.25s ease;
     background: var(--glass-mid);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -1296,7 +1356,25 @@
 
   .chat-close-btn:hover { background: rgba(192,80,80,0.12); color: var(--red); border-color: rgba(192,80,80,0.2); }
 
+  .chat-col.expanded { width: min(580px, 45vw); }
+
   .chat-col-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+  .chat-header-actions { display: flex; align-items: center; gap: 4px; }
+
+  .chat-action-btn {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    border: 1px solid rgba(74,124,89,0.15);
+    background: rgba(255,255,255,0.5);
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .chat-action-btn:hover { background: rgba(74,124,89,0.12); color: var(--green-dark); }
 
   /* ════════════════════ SIDE PANEL ════════════════════ */
   .side-panel {
@@ -1343,17 +1421,36 @@
     font-weight: 700;
   }
 
+  /* ════════════════════ HAMBURGER (mobile only) ════════════════════ */
+  .hamburger-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    border: 1px solid rgba(74,124,89,0.18);
+    background: rgba(255,255,255,0.55);
+    color: var(--green-dark);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* Mobile backdrop */
+  .mobile-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 9;
+  }
+
   /* ════════════════════ RESPONSIVE ════════════════════ */
   @media (max-width: 1280px) {
     .tiles-5 { grid-template-columns: repeat(3, 1fr); }
-    .chat-col { width: 320px; }
+    .chat-col:not(.expanded) { width: 320px; }
   }
 
   @media (max-width: 1024px) {
-    .sidebar { width: 64px; }
-    .nav-label, .logo-text { display: none; }
-    .logo { justify-content: center; padding: 4px 0 20px; }
-    .nav-item { justify-content: center; padding: 10px 0; }
     .chat-col { display: none; }
     .kpi-row { grid-template-columns: 1fr 1fr; }
     .kpi-card:first-child { grid-column: span 2; }
@@ -1362,7 +1459,28 @@
     .tiles-5 { grid-template-columns: repeat(2, 1fr); }
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 768px) {
+    .hamburger-btn { display: flex; }
+    .mobile-backdrop { display: block; }
+
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      width: 224px !important;
+      z-index: 10;
+    }
+    .sidebar.mobile-open {
+      transform: translateX(0);
+    }
+    /* restore labels in mobile overlay */
+    .sidebar .nav-label,
+    .sidebar .logo-text { display: block !important; }
+    .sidebar .logo { justify-content: flex-start !important; padding: 4px 10px 24px !important; }
+    .sidebar .nav-item { justify-content: flex-start !important; padding: 9px 10px !important; }
+
+    .chat-col { display: none !important; }
     .kpi-row { grid-template-columns: 1fr; }
     .kpi-card:first-child { grid-column: auto; }
     .tiles-row { grid-template-columns: 1fr; }
@@ -1370,5 +1488,9 @@
     .dashboard { padding: 14px 14px 24px; }
     .dash-header { padding: 12px 16px; }
     .month-title { font-size: 16px; }
+  }
+
+  @media (max-width: 480px) {
+    .tiles-5 { grid-template-columns: 1fr; }
   }
 </style>

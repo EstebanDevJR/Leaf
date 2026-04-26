@@ -34,7 +34,7 @@ _SCHEMA = {
     "required": ["merchant", "date", "items", "total", "category"],
 }
 
-_PROMPT = "Extract merchant, date (DD/MM/YYYY), items with integer amounts, integer total, and category from this receipt."
+_PROMPT = "Extract merchant, date (DD/MM/YYYY), items with integer amounts, the final amount to pay (TOTAL A PAGAR / VALOR A PAGAR / GRAN TOTAL — never subtotal or IVA), and category from this receipt."
 
 
 def _normalize_date(value: str | None) -> str | None:
